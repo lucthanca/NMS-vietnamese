@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.log
+test_output.json
+test_back.MXML
+test_fixed.json
+test_fixed_back.MXML
+*.MBIN
