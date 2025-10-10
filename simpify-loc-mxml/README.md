@@ -17,7 +17,13 @@ npm install
 npm run build
 ```
 
-### 2. Convert MXML sang JSON
+### 2. Xem tất cả các tùy chọn
+
+```bash
+npm start -- --help
+```
+
+### 3. Convert MXML sang JSON
 
 Convert file MXML thành định dạng JSON đơn giản:
 
@@ -42,7 +48,7 @@ npm start -- -m mxml-to-json -i ../NMS_LOC1_ENGLISH_EXAMPLE.MXML -o output.json
 }
 ```
 
-### 3. Convert JSON sang MXML
+### 4. Convert JSON sang MXML
 
 Convert file JSON trở lại định dạng MXML:
 
@@ -58,15 +64,69 @@ Sử dụng template file giúp giữ nguyên cấu trúc và format của file 
 npm start -- --mode json-to-mxml --input output.json --output NMS_LOC1_NEW.MXML --template ../NMS_LOC1_ENGLISH_EXAMPLE.MXML
 ```
 
+### 5. Merge JSON Files (Mới!)
+
+Merge các bản dịch từ file JSON này sang file JSON khác dựa trên việc so khớp key (sau khi bỏ prefix):
+
+**Cách nhanh (khuyến nghị):**
+
+```bash
+npm run merge -- <source-file> <target-file> <output-file> <source-prefix> <target-prefix>
+```
+
+Ví dụ:
+```bash
+npm run merge -- file1_example.json file2_example.json merged.json "BUI_" "TRA_"
+```
+
+**Output:**
+- `merged.json` - File chứa tất cả keys đã merge
+- `merged_not_found.json` - File chứa các keys không tìm thấy (tự động tạo)
+
+**Hoặc cách đầy đủ:**
+
+```bash
+npm start -- --mode merge-json \
+  --source-file file1_example.json \
+  --target-file file2_example.json \
+  --output merged.json \
+  --source-prefix "BUI_" \
+  --target-prefix "TRA_"
+```
+
+**Hoặc với tham số ngắn gọn:**
+
+```bash
+npm start -- -m merge-json -sf file1.json -tf file2.json -o merged.json -sp "BUI_" -tp "TRA_"
+```
+
+**📖 Xem hướng dẫn chi tiết:** [MERGE-JSON-GUIDE.md](MERGE-JSON-GUIDE.md)
+
 ## Options
+
+### Common Options
 
 | Option | Short | Mô tả |
 |--------|-------|-------|
-| `--mode` | `-m` | Chế độ convert: `mxml-to-json` hoặc `json-to-mxml` |
-| `--input` | `-i` | Đường dẫn file input |
+| `--mode` | `-m` | Chế độ: `mxml-to-json`, `json-to-mxml`, hoặc `merge-json` |
 | `--output` | `-o` | Đường dẫn file output |
-| `--template` | `-t` | (Optional) File MXML template khi convert json-to-mxml |
 | `--help` | `-h` | Hiển thị help |
+
+### Options cho MXML ↔ JSON
+
+| Option | Short | Mô tả |
+|--------|-------|-------|
+| `--input` | `-i` | Đường dẫn file input |
+| `--template` | `-t` | (Optional) File MXML template khi convert json-to-mxml |
+
+### Options cho Merge JSON
+
+| Option | Short | Required | Mô tả |
+|--------|-------|----------|-------|
+| `--source-file` | `-sf` | ✓ | File JSON chứa bản dịch gốc |
+| `--target-file` | `-tf` | ✓ | File JSON cần được cập nhật |
+| `--source-prefix` | `-sp` | ✓ | Prefix của các key trong file nguồn (ví dụ: `"BUI_"`) |
+| `--target-prefix` | `-tp` | ✓ | Prefix của các key trong file đích (ví dụ: `"TRA_"`) |
 
 ## Ví dụ Workflow
 
@@ -89,12 +149,16 @@ npm start -- -m json-to-mxml -i loc1_english.json -o ../NMS_LOC1_VIETNAMESE.MXML
 ```
 simpify-loc-mxml/
 ├── src/
-│   ├── converter.ts      # Class xử lý convert MXML ↔ JSON
-│   └── index.ts          # CLI interface
-├── dist/                 # Compiled JavaScript files
+│   ├── converter.ts         # Class xử lý convert MXML ↔ JSON
+│   ├── merger.ts            # Class xử lý merge JSON files
+│   └── index.ts             # CLI interface
+├── dist/                    # Compiled JavaScript files
+├── file1_example.json       # File ví dụ 1 (source)
+├── file2_example.json       # File ví dụ 2 (target)
 ├── package.json
 ├── tsconfig.json
-└── README.md
+├── README.md
+└── MERGE-JSON-GUIDE.md      # Hướng dẫn chi tiết merge JSON
 ```
 
 ## Development

@@ -1,0 +1,6 @@
+{
+  "UI_SCAN_NO": "Không có công nghệ scan <IMG>SLASH<>",
+  "UI_SCAN_BROKEN": "Scanner bị hỏng nghiêm trọng &lt;IMG&gt;SLASH&lt;&gt;",
+  "UI_WARP": "Đã khám phá hệ thống %SYSTEM% &amp; %LOCATION%",
+  "UI_BEACON": "Phát hiện beacon &quot;%BEACON%&quot;"
+}

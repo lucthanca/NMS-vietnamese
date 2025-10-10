@@ -1,0 +1,7 @@
+{
+  "MSG_SCAN_NO": "No scan technology",
+  "MSG_SCAN_BROKEN": "Scanner broken",
+  "MSG_WARP": "Discovered system",
+  "MSG_BEACON": "Beacon found",
+  "MSG_EXTRA": "This key should remain"
+}

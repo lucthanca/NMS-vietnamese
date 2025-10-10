@@ -1,0 +1,7 @@
+{
+  "MSG_SCAN_NO": "Không có công nghệ scan <IMG>SLASH<>",
+  "MSG_SCAN_BROKEN": "Scanner bị hỏng nghiêm trọng &lt;IMG&gt;SLASH&lt;&gt;",
+  "MSG_WARP": "Đã khám phá hệ thống %SYSTEM% &amp; %LOCATION%",
+  "MSG_BEACON": "Phát hiện beacon &quot;%BEACON%&quot;",
+  "MSG_EXTRA": "This key should remain"
+}
