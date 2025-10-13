@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2025-10-11
+
+### Added ⭐
+- **Translate MXML Mode**: Tính năng mới dịch file MXML từ tiếng Anh sang tiếng Việt
+  - Đọc tất cả file JSON trong thư mục data (auto-load)
+  - Tìm kiếm và ánh xạ theo `_id` trong MXML với key trong JSON
+  - Chuyển English value hiện tại → French (backup original)
+  - Thay thế English value = bản dịch tiếng Việt từ JSON
+  - Export file JSON chứa các key không tìm thấy trong template
+  - Báo cáo chi tiết: processed, not found, unused keys
+- CLI Options cho translate-mxml:
+  - `--template` / `-t`: Template MXML file (required)
+  - `--data-folder` / `-df`: Folder chứa JSON translations (required)
+  - `--not-found` / `-nf`: Output file cho unused keys (optional)
+- Documentation:
+  - `TRANSLATE-MXML-GUIDE.md`: Hướng dẫn chi tiết đầy đủ
+  - `QUICK-START-TRANSLATE.md`: Hướng dẫn nhanh bằng tiếng Việt
+- Test Files:
+  - `tests/test_translation.json`: Sample translation data
+  - `tests/test_data/`: Test data folder
+  - `tests/NMS_LOC1_VIETNAMESE_TEST.MXML`: Test output
+
+### Changed
+- Updated `README.md`: Thêm section "Translate MXML với JSON data"
+- Updated `package.json`: Thêm script shortcut `translate`
+- Updated help message: Thêm hướng dẫn cho translate-mxml mode
+
+### Technical
+- New file: `src/translator.ts` - MXMLTranslator class
+  - Method: `loadAllJsonData()` - Load all JSON from folder
+  - Method: `translate()` - Main translation logic
+  - Smart regex matching preserving HTML entities
+  - French backup mechanism
+- Updated: `src/index.ts` - Extended CLI with translate-mxml mode
+  - New mode validation
+  - New argument parsing for translate options
+  - Integration with MXMLTranslator class
+
+### Features Details
+- **Auto-load JSON**: Tự động đọc tất cả file `.json` trong folder, không cần merge thủ công
+- **HTML Entities Safe**: Giữ nguyên `&lt;`, `&gt;`, `&amp;` và các entities khác
+- **Game Code Preservation**: Giữ nguyên các mã như `%SYSTEM%`, `<IMG>`, etc.
+- **Backup Original**: English gốc luôn được backup vào French field
+- **Not Found Tracking**: Track và export các translation keys không được sử dụng
+- **Detailed Reporting**: Console output với emoji và thống kê chi tiết
+
 ## [1.1.0] - 2025-10-10
 
 ### Added

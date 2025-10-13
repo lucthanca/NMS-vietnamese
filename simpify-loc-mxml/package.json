@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "merge": "node merge.js"
+    "merge": "node merge.js",
+    "translate": "npm start -- --mode translate-mxml"
   },
   "keywords": ["nms", "localization", "converter"],
   "author": "",

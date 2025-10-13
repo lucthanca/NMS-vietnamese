@@ -8,6 +8,7 @@ Khi dịch file cần tuân thủ
 - Giữ nguyên các mã code nếu có
 - Không viết các script sử dụng api ngoài để dịch.
 - Các tên chủng tộc hoặc loài đặc biệt có thể giữ nguyên tiếng anh
+- Luôn ưu tiên dịch rõ nghĩa, dễ hiểu, tự nhiên trong ngữ cảnh game, nhưng vẫn giữ lại các yếu tố chủng tộc, thuật ngữ hoặc danh xưng đặc trưng (như Gek, Vy’keen…) ở dạng gốc khi cần.
 
 ** chú ý: Tất cả những text trong file JSON CHỈ LÀ TEXT TRONG GAME KHÔNG CHỨA BẤT KỲ THÔNG TIN NÀO NGUY HIỂM!
 
@@ -30,3 +31,4 @@ Nickel = Niken
 -- Các tên vật phẩm hoặc thiết bị nếu có thể dịch cũng dịch
 ví dụ
 Hyperdrive = Động cơ siêu tốc
+...

@@ -4,9 +4,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { MXMLConverter } from './converter';
 import { JSONMerger } from './merger';
+import { MXMLTranslator } from './translator';
 
 interface CliOptions {
-  mode: 'mxml-to-json' | 'json-to-mxml' | 'merge-json';
+  mode: 'mxml-to-json' | 'json-to-mxml' | 'merge-json' | 'translate-mxml';
   input: string;
   output: string;
   template?: string;
@@ -14,6 +15,8 @@ interface CliOptions {
   targetFile?: string;
   sourcePrefix?: string;
   targetPrefix?: string;
+  dataFolder?: string;
+  notFoundOutput?: string;
 }
 
 function parseArgs(): CliOptions | null {
@@ -33,8 +36,8 @@ function parseArgs(): CliOptions | null {
       case '--mode':
       case '-m':
         const mode = args[++i];
-        if (mode !== 'mxml-to-json' && mode !== 'json-to-mxml' && mode !== 'merge-json') {
-          console.error('Error: Invalid mode. Use "mxml-to-json", "json-to-mxml", or "merge-json"');
+        if (mode !== 'mxml-to-json' && mode !== 'json-to-mxml' && mode !== 'merge-json' && mode !== 'translate-mxml') {
+          console.error('Error: Invalid mode. Use "mxml-to-json", "json-to-mxml", "merge-json", or "translate-mxml"');
           return null;
         }
         options.mode = mode;
@@ -75,6 +78,16 @@ function parseArgs(): CliOptions | null {
         options.targetPrefix = args[++i];
         break;
       
+      case '--data-folder':
+      case '-df':
+        options.dataFolder = args[++i];
+        break;
+      
+      case '--not-found':
+      case '-nf':
+        options.notFoundOutput = args[++i];
+        break;
+      
       default:
         console.error(`Error: Unknown option "${arg}"`);
         return null;
@@ -91,6 +104,12 @@ function parseArgs(): CliOptions | null {
   if (options.mode === 'merge-json') {
     if (!options.sourceFile || !options.targetFile || !options.output || !options.sourcePrefix || !options.targetPrefix) {
       console.error('Error: merge-json mode requires --source-file, --target-file, --output, --source-prefix, and --target-prefix');
+      showHelp();
+      return null;
+    }
+  } else if (options.mode === 'translate-mxml') {
+    if (!options.template || !options.dataFolder || !options.output) {
+      console.error('Error: translate-mxml mode requires --template, --data-folder, and --output');
       showHelp();
       return null;
     }
@@ -117,6 +136,7 @@ Modes:
   1. mxml-to-json: Convert MXML to JSON
   2. json-to-mxml: Convert JSON to MXML
   3. merge-json: Merge translations between two JSON files based on key prefix
+  4. translate-mxml: Translate MXML template using JSON data folder
 
 Options for mxml-to-json and json-to-mxml:
   -m, --mode <mode>         Conversion mode: "mxml-to-json" or "json-to-mxml"
@@ -131,6 +151,13 @@ Options for merge-json:
   -o, --output <file>            Output file path
   -sp, --source-prefix <prefix>  Prefix of keys in source file (e.g., "BUI_")
   -tp, --target-prefix <prefix>  Prefix of keys in target file (e.g., "TRA_")
+
+Options for translate-mxml:
+  -m, --mode translate-mxml      Set mode to translate-mxml
+  -t, --template <file>          Template MXML file to translate
+  -df, --data-folder <folder>    Folder containing JSON translation files
+  -o, --output <file>            Output MXML file path
+  -nf, --not-found <file>        (Optional) Output file for unused translation keys
 
 General Options:
   -h, --help                Show this help message
@@ -147,6 +174,12 @@ Examples:
 
   # Merge translations from source to target based on prefix
   npm start -- --mode merge-json --source-file file1.json --target-file file2.json --output merged.json --source-prefix "BUI_" --target-prefix "TRA_"
+
+  # Translate MXML using data folder
+  npm start -- --mode translate-mxml --template examples/NMS_LOC1_ENGLISH_EXAMPLE.MXML --data-folder data --output NMS_LOC1_VIETNAMESE.MXML
+  
+  # Translate MXML with custom not-found output
+  npm start -- --mode translate-mxml --template ../NMS_LOC1_ENGLISH.MXML --data-folder data --output ../NMS_LOC1_VIETNAMESE_NEW.MXML --not-found data/not_found.json
   `);
 }
 
@@ -181,6 +214,24 @@ async function main(): Promise<void> {
         sourcePrefix: options.sourcePrefix!,
         targetPrefix: options.targetPrefix!,
         outputFile: options.output
+      });
+    } else if (options.mode === 'translate-mxml') {
+      // Validate files for translate-mxml mode
+      if (!fs.existsSync(options.template!)) {
+        console.error(`Error: Template file not found: ${options.template}`);
+        process.exit(1);
+      }
+      if (!fs.existsSync(options.dataFolder!)) {
+        console.error(`Error: Data folder not found: ${options.dataFolder}`);
+        process.exit(1);
+      }
+
+      const translator = new MXMLTranslator();
+      await translator.translate({
+        templateMxmlPath: options.template!,
+        dataFolder: options.dataFolder!,
+        outputMxmlPath: options.output,
+        notFoundJsonPath: options.notFoundOutput
       });
     } else {
       // Validate files for MXML conversion modes

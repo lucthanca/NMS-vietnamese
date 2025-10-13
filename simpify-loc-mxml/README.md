@@ -64,7 +64,45 @@ Sử dụng template file giúp giữ nguyên cấu trúc và format của file 
 npm start -- --mode json-to-mxml --input output.json --output NMS_LOC1_NEW.MXML --template ../NMS_LOC1_ENGLISH_EXAMPLE.MXML
 ```
 
-### 5. Merge JSON Files (Mới!)
+### 5. Translate MXML với JSON data (Mới! ⭐)
+
+Dịch file MXML từ tiếng Anh sang tiếng Việt bằng cách sử dụng các file JSON bản dịch:
+
+**Cú pháp:**
+```bash
+npm start -- --mode translate-mxml \
+  --template <template-mxml-file> \
+  --data-folder <folder-chứa-json> \
+  --output <output-mxml-file>
+```
+
+**Ví dụ thực tế:**
+```bash
+npm start -- --mode translate-mxml \
+  --template ../NMS_LOC1_ENGLISH.MXML \
+  --data-folder data \
+  --output ../NMS_LOC1_VIETNAMESE.MXML
+```
+
+**Với tham số ngắn gọn:**
+```bash
+npm start -- -m translate-mxml -t examples/NMS_LOC1_ENGLISH_EXAMPLE.MXML -df data -o output/NMS_LOC1_VIETNAMESE.MXML
+```
+
+**Script sẽ:**
+- ✅ Đọc tất cả file `.json` trong thư mục `data`
+- ✅ Tìm các node có `_id` khớp với key trong JSON
+- ✅ Chuyển English value hiện tại → French (backup)
+- ✅ Thay English value = bản dịch tiếng Việt từ JSON
+- ✅ Ghi file MXML mới và file JSON chứa các key không dùng
+
+**Output:**
+- File MXML đã dịch với English = tiếng Việt, French = tiếng Anh gốc
+- File `not_found_in_template.json` chứa các key JSON không tìm thấy trong template
+
+📖 **Chi tiết:** Xem [TRANSLATE-MXML-GUIDE.md](docs/TRANSLATE-MXML-GUIDE.md)
+
+### 6. Merge JSON Files
 
 Merge các bản dịch từ file JSON này sang file JSON khác dựa trên việc so khớp key (sau khi bỏ prefix):
 
