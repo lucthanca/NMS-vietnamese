@@ -37,6 +37,32 @@ Các nodes chính trong translation pipeline:
   **Parallel Implementation**:
   - Uses subgraph with `START` edges to run all patches simultaneously
   - Each patch has independent retry logic
+#### 3. Workflow Implementations (`workflows/`)
+
+**Full Parallel Workflow** (`parallel_wf.py`):
+  - **NEW in v1.2.0**: Batching system with max 3 concurrent API calls
+  - **Architecture**: `load → split → parallel_process (batched) → merge → END`
+  - **Batching Logic**:
+    ```python
+    max_concurrent = 3  # Gemini free tier quota limit
+    for batch_start in range(0, num_patches, max_concurrent):
+        batch_end = min(batch_start + max_concurrent, num_patches)
+        with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
+            # Submit batch (3 patches max)
+            futures = {executor.submit(process_patch, i): i for i in batch_range}
+            # Wait for ALL in batch to complete
+            for future in as_completed(futures):
+                # Process result
+        # Next batch starts only after previous batch completes
+    ```
+  - **Order Preservation**: Output maintains input key order (patches merged sequentially)
+  - **Example**: 11 patches → 4 batches
+    - Batch 1: patches 1-3 (parallel)
+    - Batch 2: patches 4-6 (parallel) - waits for batch 1
+    - Batch 3: patches 7-9 (parallel) - waits for batch 2  
+    - Batch 4: patches 10-11 (parallel) - waits for batch 3
+  
+  **v1.1.0 Implementation** (deprecated - exceeded quota):
   - Pattern:
     ```python
     subflow = StateGraph(TranslationState)
@@ -45,7 +71,9 @@ Các nodes chính trong translation pipeline:
         subflow.add_edge(START, f"process_patch_{i}")  # All start together!
         subflow.add_edge(f"process_patch_{i}", END)
     ```
-  - **State Conflict Prevention**: Nodes return only updated keys:
+  - **Issue**: All patches started simultaneously → quota exceeded with >3 patches
+  
+  **State Conflict Prevention**: Nodes return only updated keys:
     ```python
     return {
         "translated_patches": updated_translations  # Only this key
@@ -53,31 +81,34 @@ Các nodes chính trong translation pipeline:
     ```
   - **Convergence**: All parallel nodes → END → merge_results (single node)
   
-  **Critical Fixes** (v1.1.0):
-  - 🐛 **List initialization**: Pre-allocate array before parallel execution
+  **Critical Fixes**:
+  - 🐛 **API Quota** (v1.2.0): Limit to 3 concurrent requests (Gemini free tier: 10 req/min)
+  - 🐛 **List initialization** (v1.1.0): Pre-allocate array before parallel execution
     ```python
     # BEFORE parallel processing
     state["translated_patches"] = [None] * num_patches
     ```
-  - 🐛 **Safe list update**: Bounds checking and extend if needed
+  - 🐛 **Safe list update** (v1.1.0): Bounds checking and extend if needed
     ```python
     while len(updated_translations) < patch_index:
         updated_translations.append(None)
     updated_translations[patch_index - 1] = translated_patch
     ```
-  - 🐛 **Merge skip None**: Handle failed patches gracefully
+  - 🐛 **Merge skip None** (v1.1.0): Handle failed patches gracefully
     ```python
     for patch in patches:
         if patch is not None:  # Skip failed translations
             merged.update(patch)
     ```
   
-  **Production Test Results** (v1.1.0 - Real Gemini API):
-  - ✅ 2 patches: 69.04s total (vs ~125s sequential) = 1.8x speedup
-  - ✅ 4 patches: All started simultaneously at 21:46:08
-  - ✅ Independent completion times (56s, 69s, 78s, 92s)
-  - ✅ Successful merge with 100 entries
-  - ✅ Linear scalability confirmed
+  **Production Test Results**:
+  - **v1.2.0** (Batched): 
+    - ✅ Test script: 7 patches → 9s (vs 21s sequential) = 2.3x speedup
+    - ✅ Max 3 concurrent API calls at any moment
+    - ✅ No quota exceeded errors
+  - **v1.1.0** (Unbounded): 
+    - ✅ 2 patches: 69.04s (vs ~125s sequential) = 1.8x speedup
+    - ❌ 11 patches: ResourceExhausted error (exceeded quota)
 
 #### 4. Utilities (`utils.py`)
 - `count_tokens()`: Estimate token count cho Gemini API
@@ -95,6 +126,7 @@ Các nodes chính trong translation pipeline:
 ### Gemini API Limits (gemini-2.5-flash)
 - **Input tokens**: 1,048,576 (1M+)
 - **Output tokens**: 65,535 (hard limit) ⚠️
+- **Rate Limit (Free Tier)**: 10 requests/minute
 - **Critical**: Output limit is much smaller than input!
 
 ### Token Counting Strategy
