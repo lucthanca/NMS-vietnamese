@@ -148,14 +148,16 @@ def merge_patches(patches: List[Dict[str, str]]) -> Dict[str, str]:
     Merge các patches lại thành một dictionary duy nhất.
     
     Args:
-        patches: List các patches cần merge
+        patches: List các patches cần merge (có thể chứa None values)
         
     Returns:
         Dictionary đã merge
     """
     merged = {}
     for patch in patches:
-        merged.update(patch)
+        # Skip None patches (failed translations)
+        if patch is not None:
+            merged.update(patch)
     return merged
 
 
