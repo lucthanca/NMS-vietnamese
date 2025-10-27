@@ -46,7 +46,7 @@ input/test_*
 output/*.json
 output/*.txt
 !output/.gitkeep
-!output/NMS_LOC6*
+!output/NMS_LOC*
 
 # Logs
 *.log
