@@ -47,6 +47,7 @@ output/*.json
 output/*.txt
 !output/.gitkeep
 !output/NMS_LOC*
+!output/NMS_UPDATE*
 
 # Logs
 *.log
