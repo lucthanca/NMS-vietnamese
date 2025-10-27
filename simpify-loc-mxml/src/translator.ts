@@ -86,7 +86,10 @@ export class MXMLTranslator {
       
       // Check if we have translation for this ID
       if (translationData.hasOwnProperty(id)) {
-        const vietnameseValue = translationData[id];
+        let vietnameseValue = translationData[id];
+
+        // replace < -> &lt; > -> &gt;
+        vietnameseValue = vietnameseValue.replace(/</g, '&lt;').replace(/>/g, '&gt;');
         usedKeys.add(id);
         processedCount++;
         
