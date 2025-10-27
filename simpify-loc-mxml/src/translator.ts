@@ -69,7 +69,7 @@ export class MXMLTranslator {
     // Step 3: Process MXML entries
     console.log('🔄 Processing translations...');
     let processedCount = 0;
-    let notFoundCount = 0;
+    const notFoundData: TranslationData = {};
     
     const entryRegex = /<Property name="Table" value="TkLocalisationEntry" _id="([^"]+)"[^>]*>([\s\S]*?)<\/Property>/g;
     
@@ -105,13 +105,13 @@ export class MXMLTranslator {
         
         return `<Property name="Table" value="TkLocalisationEntry" _id="${id}">${updatedEntry}</Property>`;
       } else {
-        notFoundCount++;
+        notFoundData[id] = currentEnglishValue;
         return match; // Keep original if no translation found
       }
     });
     
     console.log(`  ✓ Processed: ${processedCount} entries`);
-    console.log(`  ℹ Not found: ${notFoundCount} entries\n`);
+    console.log(`  ℹ Not found: ${Object.keys(notFoundData).length} entries\n`);
     
     // Step 4: Write output MXML
     console.log('💾 Writing output MXML...');
@@ -142,6 +142,13 @@ export class MXMLTranslator {
     } else {
       console.log('✅ All translation keys were used!\n');
     }
+
+    if (Object.keys(notFoundData).length > 0) {
+      const notFoundEntriesPath = path.join(path.dirname(options.outputMxmlPath), 'not_found_entries.json');
+      console.log('📝 Writing not found entries...');
+      fs.writeFileSync(notFoundEntriesPath, JSON.stringify(notFoundData, null, 2), 'utf-8');
+      console.log(`  ✓ Not found entries saved: ${notFoundEntriesPath}\n`);
+    }
     
     // Summary
     console.log('═══════════════════════════════════════');
@@ -149,7 +156,7 @@ export class MXMLTranslator {
     console.log('═══════════════════════════════════════');
     console.log(`Total translations loaded: ${Object.keys(translationData).length}`);
     console.log(`Entries processed: ${processedCount}`);
-    console.log(`Entries not found in template: ${notFoundCount}`);
+    console.log(`Entries not found in template: ${Object.keys(notFoundData).length}`);
     console.log(`Unused translation keys: ${Object.keys(notFoundKeys).length}`);
     console.log('═══════════════════════════════════════');
     console.log('\n✅ Translation completed successfully!');
