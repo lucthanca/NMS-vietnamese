@@ -44,7 +44,9 @@ input/test_*
 
 # Output
 output/*.json
+output/*.txt
 !output/.gitkeep
+!output/NMS_LOC6*
 
 # Logs
 *.log
