@@ -4,11 +4,14 @@ Mỗi node là một function nhận state và trả về dict để update stat
 """
 import logging
 import json
+import re
+import time
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+from google.api_core.exceptions import ResourceExhausted
 import os
 from dotenv import load_dotenv
 
@@ -34,12 +37,115 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize Gemini LLM
+# NOTE: Disable auto-retry cho ResourceExhausted (429) để tự xử lý smart wait
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     api_key=os.getenv("GEMINI_API_KEY"),
     temperature=0.1,  # Thấp hơn để consistent và structured output
-    max_retries=2
+    max_retries=0  # Disable auto-retry, tự handle retry logic
 )
+
+
+def extract_retry_delay(error_message: str) -> int:
+    """
+    Extract retry delay (seconds) từ ResourceExhausted error message.
+    
+    Args:
+        error_message: Error message từ Google API
+        
+    Returns:
+        Số giây cần chờ, default 60s nếu không parse được
+    """
+    # Pattern: "Please retry in 42.363447542s" hoặc "retry_delay { seconds: 42 }"
+    patterns = [
+        r'Please retry in (\d+(?:\.\d+)?)s',
+        r'retry_delay\s*{\s*seconds:\s*(\d+)',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, error_message)
+        if match:
+            delay = float(match.group(1))
+            return int(delay) + 5  # Thêm 5s buffer cho an toàn
+    
+    # Default fallback
+    return 60
+
+
+def wait_with_countdown(seconds: int, patch_info: str = ""):
+    """
+    Chờ với countdown log để user biết progress.
+    
+    Args:
+        seconds: Số giây cần chờ
+        patch_info: Thông tin về patch đang xử lý (để log)
+    """
+    logger.warning(f"⏳ [QUOTA_WAIT{patch_info}] Waiting {seconds}s for quota reset...")
+    
+    # Log countdown mỗi 10s
+    for remaining in range(seconds, 0, -10):
+        if remaining <= seconds:
+            logger.info(f"⏳ [QUOTA_WAIT{patch_info}] {remaining}s remaining...")
+        time.sleep(min(10, remaining))
+    
+    logger.info(f"✅ [QUOTA_WAIT{patch_info}] Wait complete, resuming...")
+
+
+def call_gemini_with_quota_handling(messages: List, patch_info: str = "", max_quota_retries: int = 3) -> str:
+    """
+    Gọi Gemini API với xử lý thông minh cho quota exceeded.
+    
+    Args:
+        messages: Messages để gửi đến API
+        patch_info: Thông tin patch đang dịch (để log)
+        max_quota_retries: Số lần retry tối đa cho quota errors
+        
+    Returns:
+        Response text từ API
+        
+    Raises:
+        Exception nếu vượt quá max retries hoặc gặp lỗi khác
+    """
+    quota_retry_count = 0
+    
+    while quota_retry_count <= max_quota_retries:
+        try:
+            logger.info(f"🤖 [TRANSLATE{patch_info}] Calling Gemini API...")
+            response = llm.invoke(messages)
+            return response.content.strip()
+            
+        except ResourceExhausted as e:
+            error_msg = str(e)
+            
+            # Extract retry delay từ error
+            retry_delay = extract_retry_delay(error_msg)
+            
+            # Log chi tiết về quota error
+            logger.error(f"❌ [QUOTA_EXCEEDED{patch_info}] 429 Quota Exceeded!")
+            logger.error(f"📊 [QUOTA_EXCEEDED{patch_info}] Quota: generativelanguage.googleapis.com/generate_content_free_tier_requests")
+            logger.error(f"📊 [QUOTA_EXCEEDED{patch_info}] Limit: 250 requests/day")
+            logger.error(f"📊 [QUOTA_EXCEEDED{patch_info}] Model: gemini-2.5-flash")
+            logger.error(f"📊 [QUOTA_EXCEEDED{patch_info}] Retry delay from API: {retry_delay}s")
+            logger.error(f"📊 [QUOTA_EXCEEDED{patch_info}] Attempt: {quota_retry_count + 1}/{max_quota_retries + 1}")
+            
+            # Kiểm tra có còn retry không
+            if quota_retry_count >= max_quota_retries:
+                logger.error(f"❌ [QUOTA_EXCEEDED{patch_info}] Max quota retries reached ({max_quota_retries})")
+                raise
+            
+            # Wait với countdown
+            quota_retry_count += 1
+            wait_with_countdown(retry_delay, patch_info)
+            logger.info(f"🔄 [QUOTA_RETRY{patch_info}] Retrying after quota wait (attempt {quota_retry_count + 1}/{max_quota_retries + 1})...")
+            
+        except Exception as e:
+            # Các lỗi khác (network, timeout, etc.) - không retry
+            logger.error(f"❌ [TRANSLATE{patch_info}] API Error: {type(e).__name__}: {str(e)}")
+            raise
+    
+    # Should not reach here
+    raise Exception(f"Failed after {max_quota_retries} quota retries")
+
 
 
 def load_json_file(state: TranslationState) -> Dict:
@@ -150,6 +256,8 @@ def translate_patch(state: TranslationState) -> Dict:
     patches = state['patches']
     retry_count = state.get('retry_count', 0)
     
+    patch_info = f" {current_index + 1}/{len(patches)}"
+    
     logger.info(f"🌐 [TRANSLATE] Translating patch {current_index + 1}/{len(patches)} (retry: {retry_count})")
     logger.info(f"⏰ Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
@@ -165,12 +273,8 @@ def translate_patch(state: TranslationState) -> Dict:
             HumanMessage(content=get_translation_prompt(current_patch))
         ]
         
-        # Gọi LLM để dịch
-        logger.info(f"🤖 [TRANSLATE] Calling Gemini API...")
-        response = llm.invoke(messages)
-        
-        # Parse response
-        response_text = response.content.strip()
+        # Gọi LLM với quota handling
+        response_text = call_gemini_with_quota_handling(messages, patch_info)
         
         # Ghi raw response ra file để debug
         debug_file = Path("output") / f"debug_response_patch_{current_index + 1}_retry_{retry_count}.txt"
@@ -386,6 +490,8 @@ def translate_single_patch(patch_state: PatchTranslationState) -> PatchTranslati
     start_time = datetime.now()
     patch_index = patch_state['patch_index']
     
+    patch_info = f" PATCH_{patch_index}"
+    
     logger.info(f"🌐 [TRANSLATE_PATCH_{patch_index}] Starting translation")
     logger.info(f"⏰ Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
@@ -400,12 +506,8 @@ def translate_single_patch(patch_state: PatchTranslationState) -> PatchTranslati
             HumanMessage(content=get_translation_prompt(patch_data))
         ]
         
-        # Gọi LLM
-        logger.info(f"🤖 [TRANSLATE_PATCH_{patch_index}] Calling Gemini API...")
-        response = llm.invoke(messages)
-        
-        # Parse response
-        response_text = response.content.strip()
+        # Gọi LLM với quota handling
+        response_text = call_gemini_with_quota_handling(messages, patch_info)
         
         # Xử lý markdown code block
         if response_text.startswith("```json"):

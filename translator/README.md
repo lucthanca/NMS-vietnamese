@@ -129,25 +129,51 @@ translator/
 
 ## Troubleshooting
 
-**Import errors**
+### Import errors
 ```bash
 pip install -r requirements.txt
 ```
 
-**API Key errors**
+### API Key errors
 - Check `.env` file exists
 - Verify API key is correct
 - Ensure API key has quota
 
-**Token limit too small**
+### 429 Quota Exceeded (NEW!)
+
+Khi thấy lỗi quota exceeded, script sẽ **tự động xử lý**:
+
+```
+❌ [QUOTA_EXCEEDED 11/47] 429 Quota Exceeded!
+📊 [QUOTA_EXCEEDED 11/47] Limit: 250 requests/day
+📊 [QUOTA_EXCEEDED 11/47] Retry delay from API: 47s
+⏳ [QUOTA_WAIT 11/47] Waiting 47s for quota reset...
+⏳ [QUOTA_WAIT 11/47] 47s remaining...
+⏳ [QUOTA_WAIT 11/47] 37s remaining...
+...
+✅ [QUOTA_WAIT 11/47] Wait complete, resuming...
+```
+
+**Hành động:**
+- ✅ Script tự động chờ theo thời gian API yêu cầu (e.g., 42s + 5s buffer)
+- ✅ Log countdown mỗi 10s để theo dõi
+- ✅ Tự động retry sau khi quota reset
+- ✅ Max 3 lần retry cho quota errors
+
+**Nếu cần:**
+- 🔄 Switch API key khác (update `.env`)
+- 💳 Upgrade Gemini plan tại: https://ai.google.dev/pricing
+- ⏰ Chờ sang ngày mới (free tier: 250 requests/day)
+
+### Token limit too small
 ```bash
 python main.py --token-limit 200000
 ```
 
-**Rate limit errors (parallel mode)**
+### Rate limit errors (parallel mode)
 - Switch to sequential mode
 - Reduce patches by increasing token limit
-- Add delay between requests (code modification)
+- Script tự động handle quota với countdown
 
 ## Tech Stack
 

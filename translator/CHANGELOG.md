@@ -2,6 +2,92 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1] - 2025-10-27
+
+### Fixed
+- 🐛 **Critical**: Smart handling for 429 Quota Exceeded errors
+  - **Before**: Spam retry every 2s → waste API calls
+  - **After**: Parse retry_delay from API (e.g., 42s), wait with countdown, then retry
+- 🔇 **No more spam logs**: Removed langchain's auto-retry warnings
+- ⏰ **Smart wait**: Extract and respect `retry_delay` from API response
+- 📊 **Clear visibility**: Countdown logs every 10s so users know progress
+
+### Added
+- ✅ `call_gemini_with_quota_handling()`: Main quota handler with smart retry
+- ✅ `extract_retry_delay()`: Parse retry delay from error message
+- ✅ `wait_with_countdown()`: Wait with progress logging
+- ✅ Detailed quota error logging:
+  ```
+  ❌ [QUOTA_EXCEEDED 11/47] 429 Quota Exceeded!
+  📊 [QUOTA_EXCEEDED 11/47] Quota: generativelanguage.googleapis.com/generate_content_free_tier_requests
+  📊 [QUOTA_EXCEEDED 11/47] Limit: 250 requests/day
+  📊 [QUOTA_EXCEEDED 11/47] Retry delay from API: 47s
+  ⏳ [QUOTA_WAIT 11/47] Waiting 47s for quota reset...
+  ⏳ [QUOTA_WAIT 11/47] 47s remaining...
+  ...
+  ✅ [QUOTA_WAIT 11/47] Wait complete, resuming...
+  ```
+
+### Changed
+- 🔧 **LLM Config**: Set `max_retries=0` to disable langchain auto-retry
+- 🔄 **Updated Functions**:
+  - `translate_patch()`: Use quota handler instead of direct `llm.invoke()`
+  - `translate_single_patch()`: Use quota handler for parallel workflow
+- 📚 **Documentation**: Updated README.md với troubleshooting section cho quota errors
+
+### Technical Details
+- **Quota Detection**: Catch `google.api_core.exceptions.ResourceExhausted`
+- **Retry Delay Parsing**: 
+  - Pattern 1: `"Please retry in 42.5s"` → 42s
+  - Pattern 2: `"retry_delay { seconds: 42 }"` → 42s
+  - Fallback: 60s if can't parse
+- **Buffer**: Add 5s to API's retry_delay for safety margin
+- **Max Retries**: Default 3 quota retries (configurable)
+- **Countdown**: Log every 10s during wait
+- **Non-Quota Errors**: Raise immediately (no retry)
+
+### Benefits
+- ✅ **No spam**: Clean logs, chỉ log meaningful info
+- ✅ **Efficient**: Không waste API calls với premature retry
+- ✅ **Transparent**: User biết rõ đang chờ gì, còn bao lâu
+- ✅ **Reliable**: Retry với đúng timing theo API requirement
+- ✅ **Works with parallel**: Mỗi patch có quota handling riêng
+
+### Example Output
+```
+INFO:workflows.parallel_wf:🌐 [PATCH_11] Starting parallel processing...
+INFO:wf_nodes:🤖 [TRANSLATE 11/47] Calling Gemini API...
+❌ [QUOTA_EXCEEDED 11/47] 429 Quota Exceeded!
+📊 [QUOTA_EXCEEDED 11/47] Retry delay from API: 47s
+📊 [QUOTA_EXCEEDED 11/47] Attempt: 1/3
+⏳ [QUOTA_WAIT 11/47] Waiting 47s for quota reset...
+⏳ [QUOTA_WAIT 11/47] 47s remaining...
+⏳ [QUOTA_WAIT 11/47] 37s remaining...
+⏳ [QUOTA_WAIT 11/47] 27s remaining...
+⏳ [QUOTA_WAIT 11/47] 17s remaining...
+⏳ [QUOTA_WAIT 11/47] 7s remaining...
+✅ [QUOTA_WAIT 11/47] Wait complete, resuming...
+🔄 [QUOTA_RETRY 11/47] Retrying after quota wait (attempt 2/3)...
+INFO:wf_nodes:🤖 [TRANSLATE 11/47] Calling Gemini API...
+INFO:wf_nodes:✅ [TRANSLATE] Translation completed
+```
+
+### Files Changed
+- `wf_nodes.py`:
+  - Added imports: `re`, `time`, `ResourceExhausted`
+  - Updated LLM: `max_retries=0`
+  - Added 3 new helper functions
+  - Updated 2 translation functions
+- `requirements.txt`: Added `google-api-core>=2.0.0`
+- `README.md`: Added quota exceeded troubleshooting section
+- `tests/test_quota_fix.py`: Test cases cho quota handling logic
+
+### References
+- Gemini API Rate Limits: https://ai.google.dev/gemini-api/docs/rate-limits
+- Free Tier: 250 requests/day
+
+---
+
 ## [1.2.0] - 2025-10-26
 
 ### Added
