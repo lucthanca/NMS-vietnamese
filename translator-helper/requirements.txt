@@ -4,6 +4,9 @@ PyQt6>=6.6.0
 # XML Parsing
 lxml>=5.1.0
 
+# Image Processing (for icon conversion)
+Pillow>=10.0.0
+
 # Build and Package
 PyInstaller>=6.3.0
 

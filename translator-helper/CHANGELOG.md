@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Color-coded comparison results for easy identification
 - Export comparison changes (modified/added only) to JSON and MXML formats
 - Identical files detection with informational message
+- Application icon (translator.ico) with multi-resolution support
+- Version display in status bar (bottom-left corner)
+- PNG to ICO conversion utility for icon creation
 
 ### Technical Details
 - New `MBINCompiler` wrapper class in utils module
@@ -29,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for comparing MXML and MBIN files
 - Comprehensive diff indicators (ADDED, REMOVED, MODIFIED, UNCHANGED)
 - Background thread support for MBIN conversion
+- Multi-resolution ICO file generation with Pillow library
+- Icon integration in window title bar and executable
+- Resources directory bundled with PyInstaller build
+
+### Fixed
+- Compare export now only exports modified and added entries (not removed)
+- setup.py license classifier deprecation warning resolved
 
 ## [0.2.0] - 2025-10-29
 

@@ -8,10 +8,10 @@ from typing import Optional, List
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QTableWidget,
     QTableWidgetItem, QFileDialog, QMessageBox, QProgressBar,
-    QStatusBar, QMenuBar, QMenu, QHeaderView
+    QStatusBar, QMenuBar, QMenu, QHeaderView, QLabel
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QIcon
 from pathlib import Path
 
 from core.mxml_parser import MXMLParser, MXMLEntry
@@ -95,6 +95,13 @@ class MainWindow(QMainWindow):
         self.loader_thread: Optional[LoaderThread] = None
 
         self._init_ui()
+        self._set_window_icon()
+
+    def _set_window_icon(self):
+        """Set the application window icon."""
+        icon_path = Path(__file__).parent.parent / "resources" / "translator.ico"
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
 
     def _init_ui(self):
         """Initialize the user interface components."""
@@ -176,17 +183,17 @@ class MainWindow(QMainWindow):
         exit_action.setStatusTip("Exit application")
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
-        
+
         # Tools menu
         tools_menu = menubar.addMenu("&Tools")
-        
+
         # Compare action
         compare_action = QAction("&Compare Files", self)
         compare_action.setShortcut("Ctrl+D")
         compare_action.setStatusTip("Compare current file with another file")
         compare_action.triggered.connect(self._on_compare_files)
         tools_menu.addAction(compare_action)
-        
+
         # Initially disable tools until file is loaded
         tools_menu.setEnabled(False)
         self.tools_menu = tools_menu
@@ -222,6 +229,11 @@ class MainWindow(QMainWindow):
         """Create the status bar with progress indicator."""
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+
+        # Version label
+        version_label = QLabel("v0.3.0")
+        version_label.setStyleSheet("color: gray;")
+        self.status_bar.addWidget(version_label)
 
         # Progress bar
         self.progress_bar = QProgressBar()
@@ -500,7 +512,7 @@ class MainWindow(QMainWindow):
                         Path(temp_mxml_path).unlink(missing_ok=True)
                 except:
                     pass
-    
+
     def _on_compare_files(self):
         """Handle Compare Files action."""
         if not self.entries:
@@ -510,7 +522,7 @@ class MainWindow(QMainWindow):
                 "Please load a file before comparing."
             )
             return
-        
+
         # Ask user to select file to compare
         file_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -518,21 +530,21 @@ class MainWindow(QMainWindow):
             "",
             "Localization Files (*.MXML *.MBIN *.MBIN.PC);;MXML Files (*.MXML);;MBIN Files (*.MBIN *.MBIN.PC);;All Files (*.*)"
         )
-        
+
         if not file_path:
             return
-        
+
         try:
             # Show progress
             self.status_bar.showMessage("Loading comparison file...")
             self.progress_bar.setVisible(True)
             self.progress_bar.setRange(0, 0)
-            
+
             compare_path = Path(file_path)
-            
+
             # Determine if MBIN or MXML
             is_mbin = compare_path.suffix.upper() in ['.MBIN', '.PC']
-            
+
             # Load the comparison file
             if is_mbin:
                 # Convert MBIN to MXML
@@ -541,21 +553,21 @@ class MainWindow(QMainWindow):
                 file_to_parse = temp_mxml_path
             else:
                 file_to_parse = file_path
-            
+
             # Parse the file
             parser = MXMLParser()
             compare_entries = parser.parse_file(file_to_parse)
-            
+
             # Cleanup temp file if needed
             if is_mbin and 'temp_mxml_path' in locals():
                 temp_dir = Path(temp_mxml_path).parent
                 cleanup_temp_dir(str(temp_dir))
-            
+
             self.progress_bar.setVisible(False)
-            
+
             # Perform comparison
             comparator = EntryComparator(self.entries, compare_entries)
-            
+
             # Check if identical
             if comparator.is_identical():
                 QMessageBox.information(
@@ -565,10 +577,10 @@ class MainWindow(QMainWindow):
                 )
                 self.status_bar.showMessage("Files are identical")
                 return
-            
+
             # Get comparison results
             results = comparator.compare()
-            
+
             # Show comparison dialog
             dialog = CompareDialog(
                 self.current_file.name,
@@ -577,9 +589,9 @@ class MainWindow(QMainWindow):
                 self
             )
             dialog.exec()
-            
+
             self.status_bar.showMessage("Comparison complete")
-            
+
         except MBINCompilerError as e:
             self.progress_bar.setVisible(False)
             QMessageBox.critical(

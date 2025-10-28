@@ -40,6 +40,11 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
+Or install as a package:
+```bash
+pip install -e .
+```
+
 ## Usage
 
 ### Running the Application
@@ -48,6 +53,11 @@ From the `translator-helper` directory:
 
 ```bash
 python -m src.main
+```
+
+Or if installed as package:
+```bash
+nms-translator
 ```
 
 Or using the provided script:
@@ -139,10 +149,23 @@ translator-helper/
 ├── examples/               # Example MXML files
 │   └── NMS_LOC1_ENGLISH_EXAMPLE.MXML
 ├── requirements.txt        # Python dependencies
-├── setup.py               # Package configuration
+├── setup.py               # Package configuration (for pip install)
+├── build.py               # Build script for creating .exe
 ├── run.py                 # Launcher script
 └── README.md              # This file
 ```
+
+## Building Executable
+
+To create a standalone .exe file:
+
+```bash
+python build.py
+```
+
+The executable will be created in the `dist/` directory as `NMS-MXML-Translator-Helper.exe`.
+
+**Note:** The build process includes MBINCompiler.exe, so MBIN support works in the standalone executable.
 
 ## Development
 
