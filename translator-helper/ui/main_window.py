@@ -16,6 +16,9 @@ from pathlib import Path
 
 from core.mxml_parser import MXMLParser, MXMLEntry
 from core.exporter import MXMLExporter
+from core.comparator import EntryComparator
+from utils.mbin_compiler import MBINCompiler, MBINCompilerError, cleanup_temp_dir
+from ui.compare_dialog import CompareDialog
 
 
 class LoaderThread(QThread):
@@ -32,24 +35,45 @@ class LoaderThread(QThread):
     finished = pyqtSignal(list)
     error = pyqtSignal(str)
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, is_mbin: bool = False):
         """
         Initialize the loader thread.
 
         Args:
-            file_path: Path to the MXML file to load
+            file_path: Path to the MXML or MBIN file to load
+            is_mbin: True if file is MBIN format (requires conversion)
         """
         super().__init__()
         self.file_path = file_path
+        self.is_mbin = is_mbin
+        self.temp_mxml_path = None
 
     def run(self):
         """Execute the file loading in background."""
         try:
+            file_to_parse = self.file_path
+
+            # If MBIN, convert to MXML first
+            if self.is_mbin:
+                compiler = MBINCompiler()
+                self.temp_mxml_path = compiler.mbin_to_mxml(self.file_path)
+                file_to_parse = self.temp_mxml_path
+
+            # Parse the MXML file
             parser = MXMLParser()
-            entries = parser.parse_file(self.file_path)
+            entries = parser.parse_file(file_to_parse)
             self.finished.emit(entries)
+
+        except MBINCompilerError as e:
+            self.error.emit(f"MBIN conversion error: {e}")
         except Exception as e:
             self.error.emit(str(e))
+        finally:
+            # Cleanup temp files
+            if self.temp_mxml_path:
+                temp_dir = Path(self.temp_mxml_path).parent
+                cleanup_temp_dir(str(temp_dir))
+
 
 
 class MainWindow(QMainWindow):
@@ -99,32 +123,47 @@ class MainWindow(QMainWindow):
         # File menu
         file_menu = menubar.addMenu("&File")
 
+        # Load submenu
+        load_menu = file_menu.addMenu("&Load")
+
         # Load MXML action
-        load_action = QAction("&Load MXML", self)
-        load_action.setShortcut("Ctrl+O")
-        load_action.setStatusTip("Load an MXML localization file")
-        load_action.triggered.connect(self._on_load_mxml)
-        file_menu.addAction(load_action)
+        load_mxml_action = QAction("Load &MXML", self)
+        load_mxml_action.setShortcut("Ctrl+O")
+        load_mxml_action.setStatusTip("Load an MXML localization file")
+        load_mxml_action.triggered.connect(self._on_load_mxml)
+        load_menu.addAction(load_mxml_action)
+
+        # Load MBIN action
+        load_mbin_action = QAction("Load M&BIN", self)
+        load_mbin_action.setShortcut("Ctrl+B")
+        load_mbin_action.setStatusTip("Load an MBIN file (will be converted to MXML)")
+        load_mbin_action.triggered.connect(self._on_load_mbin)
+        load_menu.addAction(load_mbin_action)
 
         file_menu.addSeparator()
 
         # Export submenu
-        export_menu = file_menu.addMenu("&Export")
-        
-        # Export to JSON action
+        export_menu = file_menu.addMenu("&Export")        # Export to JSON action
         export_json_action = QAction("Export to &JSON", self)
         export_json_action.setShortcut("Ctrl+J")
         export_json_action.setStatusTip("Export entries to JSON format")
         export_json_action.triggered.connect(self._on_export_json)
         export_menu.addAction(export_json_action)
-        
+
         # Export to MXML action
         export_mxml_action = QAction("Export to &MXML", self)
         export_mxml_action.setShortcut("Ctrl+M")
         export_mxml_action.setStatusTip("Export entries to MXML format")
         export_mxml_action.triggered.connect(self._on_export_mxml)
         export_menu.addAction(export_mxml_action)
-        
+
+        # Export to MBIN action
+        export_mbin_action = QAction("Export to M&BIN", self)
+        export_mbin_action.setShortcut("Ctrl+Shift+B")
+        export_mbin_action.setStatusTip("Export entries to MBIN format")
+        export_mbin_action.triggered.connect(self._on_export_mbin)
+        export_menu.addAction(export_mbin_action)
+
         # Initially disable export until file is loaded
         export_menu.setEnabled(False)
         self.export_menu = export_menu
@@ -137,6 +176,20 @@ class MainWindow(QMainWindow):
         exit_action.setStatusTip("Exit application")
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
+        
+        # Tools menu
+        tools_menu = menubar.addMenu("&Tools")
+        
+        # Compare action
+        compare_action = QAction("&Compare Files", self)
+        compare_action.setShortcut("Ctrl+D")
+        compare_action.setStatusTip("Compare current file with another file")
+        compare_action.triggered.connect(self._on_compare_files)
+        tools_menu.addAction(compare_action)
+        
+        # Initially disable tools until file is loaded
+        tools_menu.setEnabled(False)
+        self.tools_menu = tools_menu
 
     def _create_table(self):
         """Create the table widget for displaying entries."""
@@ -189,19 +242,35 @@ class MainWindow(QMainWindow):
         )
 
         if file_path:
-            self._load_file(file_path)
+            self._load_file(file_path, is_mbin=False)
 
-    def _load_file(self, file_path: str):
+    def _on_load_mbin(self):
+        """Handle Load MBIN menu action."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open MBIN File",
+            "",
+            "MBIN Files (*.MBIN *.MBIN.PC);;All Files (*.*)"
+        )
+
+        if file_path:
+            self._load_file(file_path, is_mbin=True)
+
+    def _load_file(self, file_path: str, is_mbin: bool = False):
         """
-        Load an MXML file in a background thread.
+        Load an MXML or MBIN file in a background thread.
 
         Args:
-            file_path: Path to the MXML file
+            file_path: Path to the MXML or MBIN file
+            is_mbin: True if loading MBIN file (requires conversion)
         """
         self.current_file = Path(file_path)
 
         # Show loading state
-        self.status_bar.showMessage(f"Loading {self.current_file.name}...")
+        if is_mbin:
+            self.status_bar.showMessage(f"Converting and loading {self.current_file.name}...")
+        else:
+            self.status_bar.showMessage(f"Loading {self.current_file.name}...")
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)  # Indeterminate progress
 
@@ -209,7 +278,7 @@ class MainWindow(QMainWindow):
         self.menuBar().setEnabled(False)
 
         # Start loader thread
-        self.loader_thread = LoaderThread(file_path)
+        self.loader_thread = LoaderThread(file_path, is_mbin=is_mbin)
         self.loader_thread.finished.connect(self._on_load_finished)
         self.loader_thread.error.connect(self._on_load_error)
         self.loader_thread.start()
@@ -227,9 +296,10 @@ class MainWindow(QMainWindow):
         # Update UI state
         self.progress_bar.setVisible(False)
         self.menuBar().setEnabled(True)
-        
-        # Enable export menu after successful load
+
+        # Enable export and tools menu after successful load
         self.export_menu.setEnabled(True)
+        self.tools_menu.setEnabled(True)
 
         entry_count = len(entries)
         self.status_bar.showMessage(
@@ -272,7 +342,7 @@ class MainWindow(QMainWindow):
 
         self.table.setSortingEnabled(True)
         self.table.resizeRowsToContents()
-    
+
     def _on_export_json(self):
         """Handle Export to JSON action."""
         if not self.entries:
@@ -282,7 +352,7 @@ class MainWindow(QMainWindow):
                 "Please load an MXML file before exporting."
             )
             return
-        
+
         # Get save file path
         default_name = self.current_file.stem + ".json" if self.current_file else "export.json"
         file_path, _ = QFileDialog.getSaveFileName(
@@ -291,19 +361,19 @@ class MainWindow(QMainWindow):
             default_name,
             "JSON Files (*.json);;All Files (*.*)"
         )
-        
+
         if file_path:
             try:
                 exporter = MXMLExporter(self.entries)
                 exporter.export_to_json(file_path)
-                
+
                 QMessageBox.information(
                     self,
                     "Export Successful",
                     f"Successfully exported {len(self.entries)} entries to:\n{file_path}"
                 )
                 self.status_bar.showMessage(f"Exported to {Path(file_path).name}")
-                
+
             except Exception as e:
                 QMessageBox.critical(
                     self,
@@ -311,7 +381,7 @@ class MainWindow(QMainWindow):
                     f"Failed to export to JSON:\n\n{str(e)}"
                 )
                 self.status_bar.showMessage("Export failed")
-    
+
     def _on_export_mxml(self):
         """Handle Export to MXML action."""
         if not self.entries:
@@ -321,7 +391,7 @@ class MainWindow(QMainWindow):
                 "Please load an MXML file before exporting."
             )
             return
-        
+
         # Get save file path
         default_name = self.current_file.stem + "_exported.MXML" if self.current_file else "export.MXML"
         file_path, _ = QFileDialog.getSaveFileName(
@@ -330,19 +400,19 @@ class MainWindow(QMainWindow):
             default_name,
             "MXML Files (*.MXML);;All Files (*.*)"
         )
-        
+
         if file_path:
             try:
                 exporter = MXMLExporter(self.entries)
                 exporter.export_to_mxml(file_path)
-                
+
                 QMessageBox.information(
                     self,
                     "Export Successful",
                     f"Successfully exported {len(self.entries)} entries to:\n{file_path}"
                 )
                 self.status_bar.showMessage(f"Exported to {Path(file_path).name}")
-                
+
             except Exception as e:
                 QMessageBox.critical(
                     self,
@@ -350,3 +420,179 @@ class MainWindow(QMainWindow):
                     f"Failed to export to MXML:\n\n{str(e)}"
                 )
                 self.status_bar.showMessage("Export failed")
+
+    def _on_export_mbin(self):
+        """Handle Export to MBIN action."""
+        if not self.entries:
+            QMessageBox.warning(
+                self,
+                "No Data",
+                "Please load a file before exporting."
+            )
+            return
+
+        # Get save file path
+        default_name = self.current_file.stem + "_exported.MBIN" if self.current_file else "export.MBIN"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export to MBIN",
+            default_name,
+            "MBIN Files (*.MBIN);;All Files (*.*)"
+        )
+
+        if file_path:
+            try:
+                # Show progress
+                self.status_bar.showMessage("Exporting to MBIN...")
+                self.progress_bar.setVisible(True)
+                self.progress_bar.setRange(0, 0)
+
+                # First export to temp MXML
+                import tempfile
+                temp_mxml = tempfile.NamedTemporaryFile(mode='w', suffix='.MXML', delete=False, encoding='utf-8')
+                temp_mxml_path = temp_mxml.name
+                temp_mxml.close()
+
+                exporter = MXMLExporter(self.entries)
+                exporter.export_to_mxml(temp_mxml_path)
+
+                # Convert MXML to MBIN
+                compiler = MBINCompiler()
+                output_dir = Path(file_path).parent
+                mbin_path = compiler.mxml_to_mbin(temp_mxml_path, str(output_dir))
+
+                # Rename to desired filename
+                final_path = Path(file_path)
+                Path(mbin_path).replace(final_path)
+
+                # Cleanup temp files
+                Path(temp_mxml_path).unlink(missing_ok=True)
+
+                self.progress_bar.setVisible(False)
+
+                QMessageBox.information(
+                    self,
+                    "Export Successful",
+                    f"Successfully exported {len(self.entries)} entries to:\n{file_path}"
+                )
+                self.status_bar.showMessage(f"Exported to {final_path.name}")
+
+            except MBINCompilerError as e:
+                self.progress_bar.setVisible(False)
+                QMessageBox.critical(
+                    self,
+                    "Export Error",
+                    f"MBIN conversion error:\n\n{str(e)}"
+                )
+                self.status_bar.showMessage("Export failed")
+            except Exception as e:
+                self.progress_bar.setVisible(False)
+                QMessageBox.critical(
+                    self,
+                    "Export Error",
+                    f"Failed to export to MBIN:\n\n{str(e)}"
+                )
+                self.status_bar.showMessage("Export failed")
+            finally:
+                # Ensure temp file is cleaned up
+                try:
+                    if 'temp_mxml_path' in locals():
+                        Path(temp_mxml_path).unlink(missing_ok=True)
+                except:
+                    pass
+    
+    def _on_compare_files(self):
+        """Handle Compare Files action."""
+        if not self.entries:
+            QMessageBox.warning(
+                self,
+                "No Data",
+                "Please load a file before comparing."
+            )
+            return
+        
+        # Ask user to select file to compare
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select File to Compare",
+            "",
+            "Localization Files (*.MXML *.MBIN *.MBIN.PC);;MXML Files (*.MXML);;MBIN Files (*.MBIN *.MBIN.PC);;All Files (*.*)"
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            # Show progress
+            self.status_bar.showMessage("Loading comparison file...")
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setRange(0, 0)
+            
+            compare_path = Path(file_path)
+            
+            # Determine if MBIN or MXML
+            is_mbin = compare_path.suffix.upper() in ['.MBIN', '.PC']
+            
+            # Load the comparison file
+            if is_mbin:
+                # Convert MBIN to MXML
+                compiler = MBINCompiler()
+                temp_mxml_path = compiler.mbin_to_mxml(file_path)
+                file_to_parse = temp_mxml_path
+            else:
+                file_to_parse = file_path
+            
+            # Parse the file
+            parser = MXMLParser()
+            compare_entries = parser.parse_file(file_to_parse)
+            
+            # Cleanup temp file if needed
+            if is_mbin and 'temp_mxml_path' in locals():
+                temp_dir = Path(temp_mxml_path).parent
+                cleanup_temp_dir(str(temp_dir))
+            
+            self.progress_bar.setVisible(False)
+            
+            # Perform comparison
+            comparator = EntryComparator(self.entries, compare_entries)
+            
+            # Check if identical
+            if comparator.is_identical():
+                QMessageBox.information(
+                    self,
+                    "Comparison Result",
+                    "✓ Files are identical!\n\nBoth files contain the same entries with the same content."
+                )
+                self.status_bar.showMessage("Files are identical")
+                return
+            
+            # Get comparison results
+            results = comparator.compare()
+            
+            # Show comparison dialog
+            dialog = CompareDialog(
+                self.current_file.name,
+                compare_path.name,
+                results,
+                self
+            )
+            dialog.exec()
+            
+            self.status_bar.showMessage("Comparison complete")
+            
+        except MBINCompilerError as e:
+            self.progress_bar.setVisible(False)
+            QMessageBox.critical(
+                self,
+                "Comparison Error",
+                f"Failed to convert MBIN file:\n\n{str(e)}"
+            )
+            self.status_bar.showMessage("Comparison failed")
+        except Exception as e:
+            self.progress_bar.setVisible(False)
+            QMessageBox.critical(
+                self,
+                "Comparison Error",
+                f"Failed to compare files:\n\n{str(e)}"
+            )
+            self.status_bar.showMessage("Comparison failed")

@@ -5,6 +5,31 @@ All notable changes to the NMS MXML Translator Helper will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-10-29
+
+### Added
+- MBIN file support with automatic conversion using MBINCompiler
+- Load MBIN functionality with keyboard shortcut (Ctrl+B)
+- Export to MBIN functionality with keyboard shortcut (Ctrl+Shift+B)
+- Load submenu for organized file loading (Load MXML, Load MBIN)
+- Tools menu with Compare Files functionality (Ctrl+D)
+- File comparison feature to identify differences between two files
+- Comparison dialog showing additions (+), deletions (-), and modifications (~)
+- Color-coded comparison results for easy identification
+- Export comparison changes (modified/added only) to JSON and MXML formats
+- Identical files detection with informational message
+
+### Technical Details
+- New `MBINCompiler` wrapper class in utils module
+- Automatic MBIN to MXML conversion for loading
+- Automatic MXML to MBIN conversion for export
+- Temporary file management with automatic cleanup
+- New `EntryComparator` class for comparing entry sets
+- New `CompareDialog` for displaying comparison results
+- Support for comparing MXML and MBIN files
+- Comprehensive diff indicators (ADDED, REMOVED, MODIFIED, UNCHANGED)
+- Background thread support for MBIN conversion
+
 ## [0.2.0] - 2025-10-29
 
 ### Added

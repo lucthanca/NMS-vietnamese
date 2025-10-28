@@ -56,16 +56,20 @@ Or using the provided script:
 python run.py
 ```
 
-### Loading MXML Files
+### Loading Files
 
 1. Launch the application
-2. Go to `File > Load MXML` (or press `Ctrl+O`)
-3. Select an MXML file (e.g., `examples/NMS_LOC1_ENGLISH_EXAMPLE.MXML`)
+2. Go to **File > Load** and choose one of the loading options:
+   - **Load MXML** (`Ctrl+O`): Load an MXML localization file directly
+   - **Load MBIN** (`Ctrl+B`): Load an MBIN file (automatically converts to MXML)
+3. Select a file (e.g., `examples/NMS_LOC1_ENGLISH_EXAMPLE.MXML`)
 4. View the loaded entries in the table
+
+**Note:** MBIN files are automatically converted to MXML using MBINCompiler before loading.
 
 ### Exporting Data
 
-After loading an MXML file, you can export the data:
+After loading a file, you can export the data in multiple formats:
 
 1. **Export to JSON** (`Ctrl+J`):
    - Go to `File > Export > Export to JSON`
@@ -78,11 +82,37 @@ After loading an MXML file, you can export the data:
    - Creates a valid MXML file with proper structure
    - HTML entities are automatically preserved (&lt;, &gt;, &amp;, etc.)
 
+3. **Export to MBIN** (`Ctrl+Shift+B`):
+   - Go to `File > Export > Export to MBIN`
+   - Choose a save location
+   - Creates an MBIN file (automatically converts from MXML)
+
+### Comparing Files
+
+After loading a file, you can compare it with another file:
+
+1. Go to `Tools > Compare Files` (`Ctrl+D`)
+2. Select a file to compare (MXML or MBIN)
+3. View the comparison results:
+   - **Green (+)**: Entries added in comparison file
+   - **Red (-)**: Entries removed in comparison file
+   - **Orange (~)**: Entries with modified content
+4. Export only the changes (modified/added entries):
+   - **Export to JSON**: Key-value pairs of modified/added entries only
+   - **Export to MXML**: Modified/added entries in MXML format
+
+**Note:** Exports only include modified and added entries (not removed ones).
+
+**Note:** If files are identical, you'll see a confirmation message.
+
 ### Menu Options
 
-- **File > Load MXML** (`Ctrl+O`): Open and load an MXML file
+- **File > Load > Load MXML** (`Ctrl+O`): Open and load an MXML file
+- **File > Load > Load MBIN** (`Ctrl+B`): Open and load an MBIN file (with conversion)
 - **File > Export > Export to JSON** (`Ctrl+J`): Export loaded data to JSON format
 - **File > Export > Export to MXML** (`Ctrl+M`): Export loaded data to MXML format
+- **File > Export > Export to MBIN** (`Ctrl+Shift+B`): Export loaded data to MBIN format
+- **Tools > Compare Files** (`Ctrl+D`): Compare current file with another file
 - **File > Exit** (`Ctrl+Q`): Close the application
 
 ## Project Structure
@@ -92,11 +122,20 @@ translator-helper/
 ├── src/                    # Application entry point
 │   └── main.py            # Main application launcher
 ├── ui/                     # User interface modules
-│   └── main_window.py     # Main window implementation
+│   ├── main_window.py     # Main window implementation
+│   └── compare_dialog.py  # File comparison dialog
 ├── core/                   # Core functionality
 │   ├── mxml_parser.py     # MXML file parser
-│   └── exporter.py        # Export functionality (JSON, MXML)
-├── utils/                  # Utility functions (future)
+│   ├── exporter.py        # Export functionality (JSON, MXML)
+│   └── comparator.py      # File comparison logic
+├── utils/                  # Utility modules
+│   └── mbin_compiler.py   # MBIN compiler wrapper
+├── tools/                  # External tools
+│   └── MBINCompiler.6.13.0.1.exe  # MBIN<->MXML converter
+├── tests/                  # Test suite
+│   ├── test_export.py     # Export tests
+│   ├── test_mbin.py       # MBIN conversion tests
+│   └── test_comparison.py # Comparison tests
 ├── examples/               # Example MXML files
 │   └── NMS_LOC1_ENGLISH_EXAMPLE.MXML
 ├── requirements.txt        # Python dependencies
