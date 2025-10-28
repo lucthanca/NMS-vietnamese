@@ -5,6 +5,25 @@ All notable changes to the NMS MXML Translator Helper will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-10-29
+
+### Added
+- Export to JSON functionality with keyboard shortcut (Ctrl+J)
+- Export to MXML functionality with keyboard shortcut (Ctrl+M)
+- Export submenu under File menu
+- Save file dialogs for both export formats
+- Automatic HTML entity preservation in MXML exports (&lt;, &gt;, &amp;, etc.)
+- Export menu enabled/disabled based on loaded file state
+- Success/error dialogs for export operations
+- Test script for verifying export functionality
+
+### Technical Details
+- New `MXMLExporter` class in core module
+- JSON export with UTF-8 encoding and proper formatting
+- MXML export maintains original file structure
+- HTML entities automatically encoded by lxml during XML writing
+- MBINCompiler comment added to exported MXML files
+
 ## [0.1.1] - 2025-10-29
 
 ### Improved

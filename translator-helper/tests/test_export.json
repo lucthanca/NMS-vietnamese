@@ -1,0 +1,7 @@
+{
+  "SCAN_NO_TECH": "No scan technology installed <IMG>SLASH<>",
+  "SCAN_BROKEN": "Scanner is critically damaged <IMG>SLASH<>",
+  "SCAN_RECHARGE": "Scanner recharging",
+  "WARP_MSG": "Discovered system in %SYSTEM%",
+  "DISCOVER_BEACON": "Discovered beacon %BEACON%"
+}

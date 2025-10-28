@@ -1,0 +1,106 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!--File created using MBINCompiler version (6.06.0.1)-->
+<Data template="cTkLocalisationTable">
+  <Property name="Table">
+    <Property name="Table" value="TkLocalisationEntry" xml:id="SCAN_NO_TECH" _id="SCAN_NO_TECH">
+      <Property name="Id" value="SCAN_NO_TECH"/>
+      <Property name="English" value="No scan technology installed &lt;IMG&gt;SLASH&lt;&gt;"/>
+      <Property name="French" value=""/>
+      <Property name="Italian" value=""/>
+      <Property name="German" value=""/>
+      <Property name="Spanish" value=""/>
+      <Property name="Russian" value=""/>
+      <Property name="Polish" value=""/>
+      <Property name="Dutch" value=""/>
+      <Property name="Portuguese" value=""/>
+      <Property name="LatinAmericanSpanish" value=""/>
+      <Property name="BrazilianPortuguese" value=""/>
+      <Property name="SimplifiedChinese" value=""/>
+      <Property name="TraditionalChinese" value=""/>
+      <Property name="TencentChinese" value=""/>
+      <Property name="Korean" value=""/>
+      <Property name="Japanese" value=""/>
+      <Property name="USEnglish" value=""/>
+    </Property>
+    <Property name="Table" value="TkLocalisationEntry" xml:id="SCAN_BROKEN" _id="SCAN_BROKEN">
+      <Property name="Id" value="SCAN_BROKEN"/>
+      <Property name="English" value="Scanner is critically damaged &lt;IMG&gt;SLASH&lt;&gt;"/>
+      <Property name="French" value=""/>
+      <Property name="Italian" value=""/>
+      <Property name="German" value=""/>
+      <Property name="Spanish" value=""/>
+      <Property name="Russian" value=""/>
+      <Property name="Polish" value=""/>
+      <Property name="Dutch" value=""/>
+      <Property name="Portuguese" value=""/>
+      <Property name="LatinAmericanSpanish" value=""/>
+      <Property name="BrazilianPortuguese" value=""/>
+      <Property name="SimplifiedChinese" value=""/>
+      <Property name="TraditionalChinese" value=""/>
+      <Property name="TencentChinese" value=""/>
+      <Property name="Korean" value=""/>
+      <Property name="Japanese" value=""/>
+      <Property name="USEnglish" value=""/>
+    </Property>
+    <Property name="Table" value="TkLocalisationEntry" xml:id="SCAN_RECHARGE" _id="SCAN_RECHARGE">
+      <Property name="Id" value="SCAN_RECHARGE"/>
+      <Property name="English" value="Scanner recharging"/>
+      <Property name="French" value=""/>
+      <Property name="Italian" value=""/>
+      <Property name="German" value=""/>
+      <Property name="Spanish" value=""/>
+      <Property name="Russian" value=""/>
+      <Property name="Polish" value=""/>
+      <Property name="Dutch" value=""/>
+      <Property name="Portuguese" value=""/>
+      <Property name="LatinAmericanSpanish" value=""/>
+      <Property name="BrazilianPortuguese" value=""/>
+      <Property name="SimplifiedChinese" value=""/>
+      <Property name="TraditionalChinese" value=""/>
+      <Property name="TencentChinese" value=""/>
+      <Property name="Korean" value=""/>
+      <Property name="Japanese" value=""/>
+      <Property name="USEnglish" value=""/>
+    </Property>
+    <Property name="Table" value="TkLocalisationEntry" xml:id="WARP_MSG" _id="WARP_MSG">
+      <Property name="Id" value="WARP_MSG"/>
+      <Property name="English" value="Discovered system in %SYSTEM%"/>
+      <Property name="French" value=""/>
+      <Property name="Italian" value=""/>
+      <Property name="German" value=""/>
+      <Property name="Spanish" value=""/>
+      <Property name="Russian" value=""/>
+      <Property name="Polish" value=""/>
+      <Property name="Dutch" value=""/>
+      <Property name="Portuguese" value=""/>
+      <Property name="LatinAmericanSpanish" value=""/>
+      <Property name="BrazilianPortuguese" value=""/>
+      <Property name="SimplifiedChinese" value=""/>
+      <Property name="TraditionalChinese" value=""/>
+      <Property name="TencentChinese" value=""/>
+      <Property name="Korean" value=""/>
+      <Property name="Japanese" value=""/>
+      <Property name="USEnglish" value=""/>
+    </Property>
+    <Property name="Table" value="TkLocalisationEntry" xml:id="DISCOVER_BEACON" _id="DISCOVER_BEACON">
+      <Property name="Id" value="DISCOVER_BEACON"/>
+      <Property name="English" value="Discovered beacon %BEACON%"/>
+      <Property name="French" value=""/>
+      <Property name="Italian" value=""/>
+      <Property name="German" value=""/>
+      <Property name="Spanish" value=""/>
+      <Property name="Russian" value=""/>
+      <Property name="Polish" value=""/>
+      <Property name="Dutch" value=""/>
+      <Property name="Portuguese" value=""/>
+      <Property name="LatinAmericanSpanish" value=""/>
+      <Property name="BrazilianPortuguese" value=""/>
+      <Property name="SimplifiedChinese" value=""/>
+      <Property name="TraditionalChinese" value=""/>
+      <Property name="TencentChinese" value=""/>
+      <Property name="Korean" value=""/>
+      <Property name="Japanese" value=""/>
+      <Property name="USEnglish" value=""/>
+    </Property>
+  </Property>
+</Data>
