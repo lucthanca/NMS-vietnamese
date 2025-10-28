@@ -5,6 +5,15 @@ All notable changes to the NMS MXML Translator Helper will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2025-10-29
+
+### Improved
+- Enhanced table UI responsiveness when resizing window
+- Key column now uses ResizeToContents mode for optimal width
+- Content column stretches to fill remaining space
+- Added word wrap support for better text display in content column
+- Improved overall user experience with dynamic column sizing
+
 ## [0.1.0] - 2025-10-29
 
 ### Added

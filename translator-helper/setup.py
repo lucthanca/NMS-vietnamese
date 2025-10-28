@@ -8,7 +8,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="nms-mxml-translator-helper",
-    version="0.1.0",
+    version="0.1.1",
     author="NMS Vietnamese Translation Team",
     description="A GUI tool for managing No Man's Sky MXML localization files",
     long_description=long_description,

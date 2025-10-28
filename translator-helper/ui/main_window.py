@@ -8,7 +8,7 @@ from typing import Optional, List
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QTableWidget, 
     QTableWidgetItem, QFileDialog, QMessageBox, QProgressBar,
-    QStatusBar, QMenuBar, QMenu
+    QStatusBar, QMenuBar, QMenu, QHeaderView
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QAction
@@ -120,15 +120,26 @@ class MainWindow(QMainWindow):
         self.table.setColumnCount(2)
         self.table.setHorizontalHeaderLabels(["Key", "Content"])
         
-        # Set column widths
-        self.table.setColumnWidth(0, 300)
-        self.table.setColumnWidth(1, 650)
+        # Configure horizontal header for responsive resizing
+        header = self.table.horizontalHeader()
+        
+        # Key column: Fixed width, resize to contents
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        
+        # Content column: Stretch to fill remaining space
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        
+        # Set minimum column widths
+        self.table.setColumnWidth(0, 200)
         
         # Table properties
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSortingEnabled(True)
+        
+        # Enable word wrap for content column
+        self.table.setWordWrap(True)
     
     def _create_status_bar(self):
         """Create the status bar with progress indicator."""
