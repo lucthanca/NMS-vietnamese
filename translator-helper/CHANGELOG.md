@@ -5,6 +5,34 @@ All notable changes to the NMS MXML Translator Helper will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-11-02
+
+### Added
+- **Merge Translation Files** feature (Ctrl+T) to load and apply translations
+- Support for loading translations from folder or individual files
+- Multi-format translation support (MXML, MBIN, JSON)
+- Third column "Translated Content" in table view
+- Visual highlighting (light green) for translated entries
+- Background threading for translation merge with progress feedback
+- Batch processing of multiple translation files
+- Smart content replacement based on entry keys
+- Export functions now use translated content when available
+- Translation count display in export success messages
+
+### Improvements
+- Table now shows original and translated content side-by-side
+- Export operations include translation statistics
+- Better status messages during merge operations
+- File count progress indicator during batch loading
+
+### Technical Details
+- New `MergeThread` class for background translation loading
+- Support for JSON flat dictionary format
+- Automatic MBIN to MXML conversion for translation files
+- Dictionary-based translation storage (key -> translated_content)
+- Export entries dynamically generated with translations applied
+- Color-coded UI feedback for translated entries
+
 ## [0.3.0] - 2025-10-29
 
 ### Added

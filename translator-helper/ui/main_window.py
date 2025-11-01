@@ -4,14 +4,15 @@ Main Window Module
 This module provides the main GUI window for the NMS MXML Translator Helper application.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict
+import json
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QTableWidget,
     QTableWidgetItem, QFileDialog, QMessageBox, QProgressBar,
     QStatusBar, QMenuBar, QMenu, QHeaderView, QLabel
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QAction, QIcon
+from PyQt6.QtGui import QAction, QIcon, QColor
 from pathlib import Path
 
 from core.mxml_parser import MXMLParser, MXMLEntry
@@ -104,7 +105,7 @@ class ComparisonThread(QThread):
         """Execute the file loading and comparison in background."""
         try:
             compare_path = Path(self.file_path)
-            
+
             # Determine if MBIN or MXML
             is_mbin = compare_path.suffix.upper() in ['.MBIN', '.PC']
 
@@ -137,6 +138,135 @@ class ComparisonThread(QThread):
                 cleanup_temp_dir(str(temp_dir))
 
 
+class MergeThread(QThread):
+    """
+    Background thread for loading and merging translation files without blocking the UI.
+
+    Signals:
+        status: Emits status message for UI updates
+        progress: Emits (current, total) for progress updates
+        finished: Emits Dict[str, str] with merged translations (key -> translated_content)
+        error: Emits error message string if loading fails
+    """
+
+    status = pyqtSignal(str)
+    progress = pyqtSignal(int, int)
+    finished = pyqtSignal(dict)
+    error = pyqtSignal(str)
+
+    def __init__(self, paths: List[str]):
+        """
+        Initialize the merge thread.
+
+        Args:
+            paths: List of file or folder paths to load translations from
+        """
+        super().__init__()
+        self.paths = paths
+        self.temp_files = []
+
+    def run(self):
+        """Execute the file loading and merging in background."""
+        try:
+            merged_translations: Dict[str, str] = {}
+            all_files = []
+
+            self.status.emit("Scanning for translation files...")
+            
+            # Collect all files to process
+            for path_str in self.paths:
+                path = Path(path_str)
+                if path.is_dir():
+                    self.status.emit(f"Scanning directory: {path.name}...")
+                    # Find all translation files in directory (non-recursive for speed)
+                    for pattern in ["*.MXML", "*.mxml", "*.MBIN", "*.mbin", "*.json", "*.JSON"]:
+                        all_files.extend(list(path.glob(pattern)))
+                    # Also check for .MBIN.PC files
+                    all_files.extend(list(path.glob("*.MBIN.PC")))
+                    all_files.extend(list(path.glob("*.mbin.pc")))
+                else:
+                    all_files.append(path)
+
+            # Remove duplicates
+            all_files = list(set(all_files))
+
+            if not all_files:
+                self.error.emit("No valid translation files found")
+                return
+
+            total_files = len(all_files)
+            self.status.emit(f"Found {total_files} translation file(s)...")
+
+            # Process each file
+            for idx, file_path in enumerate(all_files, 1):
+                self.progress.emit(idx, total_files)
+                self.status.emit(f"Loading {file_path.name}... ({idx}/{total_files})")
+
+                try:
+                    translations = self._load_file(file_path)
+                    # Merge translations (later files override earlier ones)
+                    merged_translations.update(translations)
+                except Exception as e:
+                    self.status.emit(f"Warning: Failed to load {file_path.name}: {e}")
+                    continue
+
+            self.status.emit(f"Loaded {len(merged_translations)} translation(s)")
+            self.finished.emit(merged_translations)
+
+        except Exception as e:
+            self.error.emit(str(e))
+        finally:
+            # Cleanup temp files
+            for temp_file in self.temp_files:
+                try:
+                    temp_dir = Path(temp_file).parent
+                    cleanup_temp_dir(str(temp_dir))
+                except:
+                    pass
+
+    def _load_file(self, file_path: Path) -> Dict[str, str]:
+        """
+        Load translations from a single file.
+
+        Args:
+            file_path: Path to the file
+
+        Returns:
+            Dictionary mapping keys to translated content
+        """
+        suffix = file_path.suffix.upper()
+
+        # Handle JSON files
+        if suffix == '.JSON':
+            self.status.emit(f"Parsing JSON: {file_path.name}...")
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                # Support both flat dict and nested structures
+                if isinstance(data, dict):
+                    return {k: str(v) for k, v in data.items()}
+                return {}
+
+        # Handle MBIN files (check full name for .MBIN.PC pattern)
+        is_mbin = suffix == '.MBIN' or file_path.name.upper().endswith('.MBIN.PC')
+        
+        if is_mbin:
+            self.status.emit(f"Converting MBIN: {file_path.name}...")
+            compiler = MBINCompiler()
+            temp_mxml = compiler.mbin_to_mxml(str(file_path))
+            self.temp_files.append(temp_mxml)
+            file_to_parse = temp_mxml
+        else:
+            file_to_parse = str(file_path)
+
+        # Parse MXML
+        self.status.emit(f"Parsing MXML: {file_path.name}...")
+        parser = MXMLParser()
+        entries = parser.parse_file(file_to_parse)
+
+        # Convert to dictionary
+        self.status.emit(f"Extracted {len(entries)} entries from {file_path.name}")
+        return {entry.key: entry.content for entry in entries}
+
 
 class MainWindow(QMainWindow):
     """
@@ -156,9 +286,20 @@ class MainWindow(QMainWindow):
         self.current_file: Optional[Path] = None
         self.loader_thread: Optional[LoaderThread] = None
         self.comparison_thread: Optional[ComparisonThread] = None
+        self.merge_thread: Optional[MergeThread] = None
+        self.translations: Dict[str, str] = {}  # key -> translated content
 
         self._init_ui()
         self._set_window_icon()
+
+    def closeEvent(self, event):
+        """Handle window close event - cleanup threads."""
+        # Wait for any running threads to finish
+        for thread in [self.loader_thread, self.comparison_thread, self.merge_thread]:
+            if thread and thread.isRunning():
+                thread.quit()
+                thread.wait(1000)  # Wait max 1 second
+        event.accept()
 
     def _set_window_icon(self):
         """Set the application window icon."""
@@ -250,6 +391,15 @@ class MainWindow(QMainWindow):
         # Tools menu
         tools_menu = menubar.addMenu("&Tools")
 
+        # Merge Translation action
+        merge_action = QAction("&Merge Translation Files", self)
+        merge_action.setShortcut("Ctrl+T")
+        merge_action.setStatusTip("Load and merge translation files into current entries")
+        merge_action.triggered.connect(self._on_merge_translations)
+        tools_menu.addAction(merge_action)
+
+        tools_menu.addSeparator()
+
         # Compare action
         compare_action = QAction("&Compare Files", self)
         compare_action.setShortcut("Ctrl+D")
@@ -264,8 +414,8 @@ class MainWindow(QMainWindow):
     def _create_table(self):
         """Create the table widget for displaying entries."""
         self.table = QTableWidget()
-        self.table.setColumnCount(2)
-        self.table.setHorizontalHeaderLabels(["Key", "Content"])
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Key", "Original Content", "Translated Content"])
 
         # Configure horizontal header for responsive resizing
         header = self.table.horizontalHeader()
@@ -273,8 +423,11 @@ class MainWindow(QMainWindow):
         # Key column: Fixed width, resize to contents
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
 
-        # Content column: Stretch to fill remaining space
+        # Original Content column: Stretch to fill space
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+
+        # Translated Content column: Stretch to fill space
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
         # Set minimum column widths
         self.table.setColumnWidth(0, 200)
@@ -294,7 +447,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
 
         # Version label
-        version_label = QLabel("v0.3.0")
+        version_label = QLabel("v0.4.0")
         version_label.setStyleSheet("color: gray;")
         self.status_bar.addWidget(version_label)
 
@@ -410,10 +563,21 @@ class MainWindow(QMainWindow):
             key_item.setFlags(key_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.table.setItem(row, 0, key_item)
 
-            # Content column
+            # Original Content column
             content_item = QTableWidgetItem(entry.content)
             content_item.setFlags(content_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.table.setItem(row, 1, content_item)
+
+            # Translated Content column
+            translated = self.translations.get(entry.key, "")
+            translated_item = QTableWidgetItem(translated)
+            translated_item.setFlags(translated_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            
+            # Highlight if translated
+            if translated:
+                translated_item.setBackground(QColor(200, 255, 200))  # Light green
+            
+            self.table.setItem(row, 2, translated_item)
 
         self.table.setSortingEnabled(True)
         self.table.resizeRowsToContents()
@@ -439,13 +603,17 @@ class MainWindow(QMainWindow):
 
         if file_path:
             try:
-                exporter = MXMLExporter(self.entries)
+                # Create entries with translated content if available
+                export_entries = self._get_export_entries()
+                exporter = MXMLExporter(export_entries)
                 exporter.export_to_json(file_path)
 
+                translated_count = len([e for e in self.entries if e.key in self.translations])
                 QMessageBox.information(
                     self,
                     "Export Successful",
-                    f"Successfully exported {len(self.entries)} entries to:\n{file_path}"
+                    f"Successfully exported {len(export_entries)} entries to:\n{file_path}\n\n"
+                    f"Translated: {translated_count}"
                 )
                 self.status_bar.showMessage(f"Exported to {Path(file_path).name}")
 
@@ -478,13 +646,17 @@ class MainWindow(QMainWindow):
 
         if file_path:
             try:
-                exporter = MXMLExporter(self.entries)
+                # Create entries with translated content if available
+                export_entries = self._get_export_entries()
+                exporter = MXMLExporter(export_entries)
                 exporter.export_to_mxml(file_path)
 
+                translated_count = len([e for e in self.entries if e.key in self.translations])
                 QMessageBox.information(
                     self,
                     "Export Successful",
-                    f"Successfully exported {len(self.entries)} entries to:\n{file_path}"
+                    f"Successfully exported {len(export_entries)} entries to:\n{file_path}\n\n"
+                    f"Translated: {translated_count}"
                 )
                 self.status_bar.showMessage(f"Exported to {Path(file_path).name}")
 
@@ -528,7 +700,9 @@ class MainWindow(QMainWindow):
                 temp_mxml_path = temp_mxml.name
                 temp_mxml.close()
 
-                exporter = MXMLExporter(self.entries)
+                # Create entries with translated content if available
+                export_entries = self._get_export_entries()
+                exporter = MXMLExporter(export_entries)
                 exporter.export_to_mxml(temp_mxml_path)
 
                 # Convert MXML to MBIN
@@ -545,10 +719,12 @@ class MainWindow(QMainWindow):
 
                 self.progress_bar.setVisible(False)
 
+                translated_count = len([e for e in self.entries if e.key in self.translations])
                 QMessageBox.information(
                     self,
                     "Export Successful",
-                    f"Successfully exported {len(self.entries)} entries to:\n{file_path}"
+                    f"Successfully exported {len(export_entries)} entries to:\n{file_path}\n\n"
+                    f"Translated: {translated_count}"
                 )
                 self.status_bar.showMessage(f"Exported to {final_path.name}")
 
@@ -675,3 +851,174 @@ class MainWindow(QMainWindow):
             f"Failed to compare files:\n\n{error_message}"
         )
         self.status_bar.showMessage("Comparison failed")
+
+    def _on_merge_translations(self):
+        """Handle Merge Translation Files action."""
+        if not self.entries:
+            QMessageBox.warning(
+                self,
+                "No Data",
+                "Please load a main file before merging translations."
+            )
+            return
+
+        # Ask user: folder or files?
+        choice = QMessageBox.question(
+            self,
+            "Select Translation Source",
+            "Do you want to load translations from a folder?\n\n"
+            "Click 'Yes' to select a folder\n"
+            "Click 'No' to select individual files",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Yes
+        )
+
+        if choice == QMessageBox.StandardButton.Cancel:
+            return
+
+        paths = []
+        
+        if choice == QMessageBox.StandardButton.Yes:
+            # Select folder
+            folder_path = QFileDialog.getExistingDirectory(
+                self,
+                "Select Translation Folder",
+                "",
+                QFileDialog.Option.ShowDirsOnly
+            )
+            if folder_path:
+                paths = [folder_path]
+        else:
+            # Select files
+            file_paths, _ = QFileDialog.getOpenFileNames(
+                self,
+                "Select Translation Files",
+                "",
+                "Translation Files (*.MXML *.MBIN *.MBIN.PC *.json *.JSON);;All Files (*.*)"
+            )
+            paths = file_paths
+
+        if not paths:
+            return
+
+        # Show progress
+        self.status_bar.showMessage("Loading translation files...")
+        self.progress_bar.setVisible(True)
+        self.progress_bar.setRange(0, 0)
+
+        # Disable menus during merge
+        self.menuBar().setEnabled(False)
+
+        # Create and start merge thread
+        self.merge_thread = MergeThread(paths)
+        self.merge_thread.status.connect(self._on_merge_status)
+        self.merge_thread.progress.connect(self._on_merge_progress)
+        self.merge_thread.finished.connect(self._on_merge_finished)
+        self.merge_thread.error.connect(self._on_merge_error)
+        self.merge_thread.start()
+
+    def _on_merge_status(self, message: str):
+        """
+        Handle status updates from merge thread.
+
+        Args:
+            message: Status message to display
+        """
+        self.status_bar.showMessage(message)
+
+    def _on_merge_progress(self, current: int, total: int):
+        """
+        Handle progress updates from merge thread.
+
+        Args:
+            current: Current file number
+            total: Total number of files
+        """
+        self.progress_bar.setRange(0, total)
+        self.progress_bar.setValue(current)
+
+    def _on_merge_finished(self, translations: Dict[str, str]):
+        """
+        Handle successful merge.
+
+        Args:
+            translations: Dictionary mapping keys to translated content
+        """
+        self.progress_bar.setVisible(False)
+        self.menuBar().setEnabled(True)
+
+        # Update translations
+        self.translations = translations
+
+        # Update only the translated column instead of repopulating entire table
+        self._update_translation_column()
+
+        # Show summary
+        translated_count = len([e for e in self.entries if e.key in translations])
+        QMessageBox.information(
+            self,
+            "Merge Complete",
+            f"Successfully merged translations!\n\n"
+            f"Total translations loaded: {len(translations)}\n"
+            f"Matching entries: {translated_count}/{len(self.entries)}"
+        )
+        self.status_bar.showMessage(
+            f"Merged {translated_count} translations"
+        )
+
+    def _update_translation_column(self):
+        """Update only the translation column (column 2) without repopulating entire table."""
+        self.table.setSortingEnabled(False)
+        
+        highlight_color = QColor(200, 255, 200)
+        
+        for row in range(self.table.rowCount()):
+            # Get key from first column
+            key_item = self.table.item(row, 0)
+            if not key_item:
+                continue
+                
+            key = key_item.text()
+            translated = self.translations.get(key, "")
+            
+            # Update translated column
+            translated_item = QTableWidgetItem(translated)
+            translated_item.setFlags(translated_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            
+            if translated:
+                translated_item.setBackground(highlight_color)
+            
+            self.table.setItem(row, 2, translated_item)
+        
+        self.table.setSortingEnabled(True)
+
+    def _on_merge_error(self, error_message: str):
+        """
+        Handle merge errors.
+
+        Args:
+            error_message: Error message to display
+        """
+        self.progress_bar.setVisible(False)
+        self.menuBar().setEnabled(True)
+
+        QMessageBox.critical(
+            self,
+            "Merge Error",
+            f"Failed to merge translation files:\n\n{error_message}"
+        )
+        self.status_bar.showMessage("Merge failed")
+
+    def _get_export_entries(self) -> List[MXMLEntry]:
+        """
+        Get entries for export, using translated content if available.
+
+        Returns:
+            List of MXMLEntry with translated content where available
+        """
+        export_entries = []
+        for entry in self.entries:
+            # Use translated content if available, otherwise use original
+            content = self.translations.get(entry.key, entry.content)
+            export_entries.append(MXMLEntry(key=entry.key, content=content))
+        return export_entries

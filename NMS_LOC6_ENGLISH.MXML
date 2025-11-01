@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--File created using MBINCompiler version (6.06.0.1)-->
+<!--File created using MBINCompiler version (6.13.0.1)-->
 <Data template="cTkLocalisationTable">
 	<Property name="Table">
 		<Property name="Table" value="TkLocalisationEntry" _id="UPDATE6_TITLE">
@@ -80362,6 +80362,26 @@
 			<Property name="Japanese" value="" />
 			<Property name="USEnglish" value="" />
 		</Property>
+		<Property name="Table" value="TkLocalisationEntry" _id="UI_EXPED_PARTY_PLANET1_MSG_TELE">
+			<Property name="Id" value="UI_EXPED_PARTY_PLANET1_MSG_TELE" />
+			<Property name="English" value="Reach the first rendezvous point&#xA;Use a &lt;TECHNOLOGY&gt;Teleporter&lt;&gt; to return to the expedition route" />
+			<Property name="French" value="" />
+			<Property name="Italian" value="" />
+			<Property name="German" value="" />
+			<Property name="Spanish" value="" />
+			<Property name="Russian" value="" />
+			<Property name="Polish" value="" />
+			<Property name="Dutch" value="" />
+			<Property name="Portuguese" value="" />
+			<Property name="LatinAmericanSpanish" value="" />
+			<Property name="BrazilianPortuguese" value="" />
+			<Property name="SimplifiedChinese" value="" />
+			<Property name="TraditionalChinese" value="" />
+			<Property name="TencentChinese" value="" />
+			<Property name="Korean" value="" />
+			<Property name="Japanese" value="" />
+			<Property name="USEnglish" value="" />
+		</Property>
 		<Property name="Table" value="TkLocalisationEntry" _id="UI_PARTY_PLANET_SURVEY">
 			<Property name="Id" value="UI_PARTY_PLANET_SURVEY" />
 			<Property name="English" value="Reach the expedition &lt;STELLAR&gt;rendezvous point&lt;&gt;&#xA;Use the &lt;TECHNOLOGY&gt;Target Sweep&lt;&gt; to locate the rendezvous point" />
@@ -80702,6 +80722,26 @@
 			<Property name="Japanese" value="" />
 			<Property name="USEnglish" value="" />
 		</Property>
+		<Property name="Table" value="TkLocalisationEntry" _id="UI_EXPED_PARTY_PLANET2_MSG_TELE">
+			<Property name="Id" value="UI_EXPED_PARTY_PLANET2_MSG_TELE" />
+			<Property name="English" value="Reach the second rendezvous point&#xA;Use a &lt;TECHNOLOGY&gt;Teleporter&lt;&gt; to return to the expedition route" />
+			<Property name="French" value="" />
+			<Property name="Italian" value="" />
+			<Property name="German" value="" />
+			<Property name="Spanish" value="" />
+			<Property name="Russian" value="" />
+			<Property name="Polish" value="" />
+			<Property name="Dutch" value="" />
+			<Property name="Portuguese" value="" />
+			<Property name="LatinAmericanSpanish" value="" />
+			<Property name="BrazilianPortuguese" value="" />
+			<Property name="SimplifiedChinese" value="" />
+			<Property name="TraditionalChinese" value="" />
+			<Property name="TencentChinese" value="" />
+			<Property name="Korean" value="" />
+			<Property name="Japanese" value="" />
+			<Property name="USEnglish" value="" />
+		</Property>
 		<Property name="Table" value="TkLocalisationEntry" _id="UI_EXPED_PARTY_PLANET2_OBJ">
 			<Property name="Id" value="UI_EXPED_PARTY_PLANET2_OBJ" />
 			<Property name="English" value="Reach the second rendezvous point" />
@@ -80845,6 +80885,26 @@
 		<Property name="Table" value="TkLocalisationEntry" _id="UI_EXPED_PARTY_PLANET3_MSG_MAPA">
 			<Property name="Id" value="UI_EXPED_PARTY_PLANET3_MSG_MAPA" />
 			<Property name="English" value="Reach the third &lt;STELLAR&gt;rendezvous point&lt;&gt;&#xA;Return to space to access the &lt;TECHNOLOGY&gt;Galaxy Map&lt;&gt;" />
+			<Property name="French" value="" />
+			<Property name="Italian" value="" />
+			<Property name="German" value="" />
+			<Property name="Spanish" value="" />
+			<Property name="Russian" value="" />
+			<Property name="Polish" value="" />
+			<Property name="Dutch" value="" />
+			<Property name="Portuguese" value="" />
+			<Property name="LatinAmericanSpanish" value="" />
+			<Property name="BrazilianPortuguese" value="" />
+			<Property name="SimplifiedChinese" value="" />
+			<Property name="TraditionalChinese" value="" />
+			<Property name="TencentChinese" value="" />
+			<Property name="Korean" value="" />
+			<Property name="Japanese" value="" />
+			<Property name="USEnglish" value="" />
+		</Property>
+		<Property name="Table" value="TkLocalisationEntry" _id="UI_EXPED_PARTY_PLANET3_MSG_TELE">
+			<Property name="Id" value="UI_EXPED_PARTY_PLANET3_MSG_TELE" />
+			<Property name="English" value="Reach the third rendezvous point&#xA;Use a &lt;TECHNOLOGY&gt;Teleporter&lt;&gt; to return to the expedition route" />
 			<Property name="French" value="" />
 			<Property name="Italian" value="" />
 			<Property name="German" value="" />
@@ -81022,6 +81082,26 @@
 			<Property name="Japanese" value="" />
 			<Property name="USEnglish" value="" />
 		</Property>
+		<Property name="Table" value="TkLocalisationEntry" _id="UI_EXPED_PARTY_PLANET4_MSG_TELE">
+			<Property name="Id" value="UI_EXPED_PARTY_PLANET4_MSG_TELE" />
+			<Property name="English" value="Reach the fourth rendezvous point&#xA;Use a &lt;TECHNOLOGY&gt;Teleporter&lt;&gt; to return to the expedition route" />
+			<Property name="French" value="" />
+			<Property name="Italian" value="" />
+			<Property name="German" value="" />
+			<Property name="Spanish" value="" />
+			<Property name="Russian" value="" />
+			<Property name="Polish" value="" />
+			<Property name="Dutch" value="" />
+			<Property name="Portuguese" value="" />
+			<Property name="LatinAmericanSpanish" value="" />
+			<Property name="BrazilianPortuguese" value="" />
+			<Property name="SimplifiedChinese" value="" />
+			<Property name="TraditionalChinese" value="" />
+			<Property name="TencentChinese" value="" />
+			<Property name="Korean" value="" />
+			<Property name="Japanese" value="" />
+			<Property name="USEnglish" value="" />
+		</Property>
 		<Property name="Table" value="TkLocalisationEntry" _id="UI_EXPED_PARTY_PLANET4_OBJ">
 			<Property name="Id" value="UI_EXPED_PARTY_PLANET4_OBJ" />
 			<Property name="English" value="Reach the fourth rendezvous point" />
@@ -81165,6 +81245,26 @@
 		<Property name="Table" value="TkLocalisationEntry" _id="UI_EXPED_PARTY_PLANET5_MSG_MAPA">
 			<Property name="Id" value="UI_EXPED_PARTY_PLANET5_MSG_MAPA" />
 			<Property name="English" value="Reach the final &lt;STELLAR&gt;rendezvous point&lt;&gt;&#xA;Return to space to access the &lt;TECHNOLOGY&gt;Galaxy Map&lt;&gt;" />
+			<Property name="French" value="" />
+			<Property name="Italian" value="" />
+			<Property name="German" value="" />
+			<Property name="Spanish" value="" />
+			<Property name="Russian" value="" />
+			<Property name="Polish" value="" />
+			<Property name="Dutch" value="" />
+			<Property name="Portuguese" value="" />
+			<Property name="LatinAmericanSpanish" value="" />
+			<Property name="BrazilianPortuguese" value="" />
+			<Property name="SimplifiedChinese" value="" />
+			<Property name="TraditionalChinese" value="" />
+			<Property name="TencentChinese" value="" />
+			<Property name="Korean" value="" />
+			<Property name="Japanese" value="" />
+			<Property name="USEnglish" value="" />
+		</Property>
+		<Property name="Table" value="TkLocalisationEntry" _id="UI_EXPED_PARTY_PLANET5_MSG_TELE">
+			<Property name="Id" value="UI_EXPED_PARTY_PLANET5_MSG_TELE" />
+			<Property name="English" value="Reach the final rendezvous&#xA;Use a &lt;TECHNOLOGY&gt;Teleporter&lt;&gt; to return to the expedition route" />
 			<Property name="French" value="" />
 			<Property name="Italian" value="" />
 			<Property name="German" value="" />
