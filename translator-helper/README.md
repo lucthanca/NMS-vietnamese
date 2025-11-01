@@ -4,13 +4,28 @@ A GUI application for managing No Man's Sky MXML localization files. This tool h
 
 ## Features
 
+### Core Features
 - **Simple GUI Interface**: User-friendly PyQt6-based interface
-- **MXML File Loading**: Load and parse No Man's Sky MXML localization files
-- **Data Table View**: Display key-content pairs in an easy-to-read table format
-- **Export Functionality**: Export to JSON and MXML formats with HTML entity preservation
+- **MXML/MBIN Support**: Load and parse No Man's Sky localization files (both MXML and MBIN formats)
+- **Data Table View**: Display key-content pairs with translations in 3-column format
+- **Export Functionality**: Export to JSON, MXML, and MBIN formats with HTML entity preservation
 - **Progress Tracking**: Real-time loading progress with status bar
 - **Responsive Design**: Table automatically adapts to window resizing
-- **Extensible Design**: Structured codebase ready for future translation tools
+
+### Translation Features
+- **AI Translation** (NEW in v0.5.0): Automatic translation using Google Gemini API
+- **Find Missing Translations**: Identify entries without translations
+- **Merge Translation Files**: Load and apply existing translations from folders or files
+- **Real-time Progress**: Live updates during translation with patch-based processing
+- **Settings Management**: Configure API keys and workflow preferences
+- **Visual Feedback**: Color-coded highlighting for translated entries
+
+### Advanced Tools
+- **File Comparison**: Compare two files and identify differences
+- **Multi-format Support**: Work with MXML, MBIN, and JSON formats
+- **Batch Processing**: Process multiple translation files at once
+- **Background Operations**: Non-blocking UI with threaded operations
+- **Extensible Design**: Modular codebase ready for future enhancements
 
 ## Installation
 
@@ -96,6 +111,57 @@ After loading a file, you can export the data in multiple formats:
    - Go to `File > Export > Export to MBIN`
    - Choose a save location
    - Creates an MBIN file (automatically converts from MXML)
+
+### Merging Translations
+
+Load existing translations to merge with your main file:
+
+1. Load your main MXML/MBIN file first
+2. Go to **Tools → Merge Translation Files** (`Ctrl+T`)
+3. Select a folder containing translation files or individual files
+4. Supported formats: MXML, MBIN, JSON
+5. Translations appear in the "Translated Content" column with green highlighting
+6. Export includes merged translations
+
+### AI Translation (NEW in v0.5.0)
+
+Automatically translate missing entries using Google Gemini API:
+
+#### Setup API Key
+
+1. Get your Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Go to **Settings → Preferences** (`Ctrl+,`)
+3. Enter your Gemini API key
+4. Select workflow type:
+   - **Sequence**: Translate one patch at a time (safer, slower)
+   - **Full Parallel**: Translate all patches at once (faster, uses more quota)
+5. Click **Save**
+
+#### Translate Missing Entries
+
+**Option 1: Direct Translation**
+1. Load your main MXML/MBIN file
+2. Go to **Tools → Translate with AI** (`Ctrl+T`)
+3. App will detect entries without translations
+4. Click **Yes** to start translation
+5. Monitor real-time progress with patch updates
+6. Translations are automatically applied to the table
+
+**Option 2: After Merging Translations**
+1. Load your main file
+2. Go to **Tools → Merge Translation Files** (`Ctrl+Shift+T`)
+3. Select translation files/folder
+4. If missing entries are detected, you'll be prompted
+5. Click **Yes** to translate missing entries
+6. Click **Apply Translations** when complete
+
+#### Features
+- **Smart Patching**: Automatically splits large datasets into manageable chunks
+- **Progress Tracking**: Real-time updates for each translation patch
+- **Retry Logic**: 3 automatic retries for failed translations
+- **Quota Handling**: Smart wait with countdown when rate limits hit
+- **Validation**: Ensures all keys are translated correctly
+- **Visual Feedback**: Green highlighting for translated entries
 
 ### Comparing Files
 

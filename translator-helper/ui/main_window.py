@@ -9,7 +9,7 @@ import json
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QTableWidget,
     QTableWidgetItem, QFileDialog, QMessageBox, QProgressBar,
-    QStatusBar, QMenuBar, QMenu, QHeaderView, QLabel
+    QStatusBar, QMenuBar, QMenu, QHeaderView, QLabel, QDialog
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon, QColor
@@ -20,6 +20,8 @@ from core.exporter import MXMLExporter
 from core.comparator import EntryComparator
 from utils.mbin_compiler import MBINCompiler, MBINCompilerError, cleanup_temp_dir
 from ui.compare_dialog import CompareDialog
+from ui.settings_dialog import SettingsDialog
+from ui.missing_entries_dialog import MissingEntriesDialog
 
 
 class LoaderThread(QThread):
@@ -172,7 +174,7 @@ class MergeThread(QThread):
             all_files = []
 
             self.status.emit("Scanning for translation files...")
-            
+
             # Collect all files to process
             for path_str in self.paths:
                 path = Path(path_str)
@@ -248,7 +250,7 @@ class MergeThread(QThread):
 
         # Handle MBIN files (check full name for .MBIN.PC pattern)
         is_mbin = suffix == '.MBIN' or file_path.name.upper().endswith('.MBIN.PC')
-        
+
         if is_mbin:
             self.status.emit(f"Converting MBIN: {file_path.name}...")
             compiler = MBINCompiler()
@@ -391,9 +393,18 @@ class MainWindow(QMainWindow):
         # Tools menu
         tools_menu = menubar.addMenu("&Tools")
 
+        # Translate action
+        translate_action = QAction("&Translate with AI", self)
+        translate_action.setShortcut("Ctrl+T")
+        translate_action.setStatusTip("Translate missing entries using Gemini AI")
+        translate_action.triggered.connect(self._on_translate_missing)
+        tools_menu.addAction(translate_action)
+
+        tools_menu.addSeparator()
+
         # Merge Translation action
         merge_action = QAction("&Merge Translation Files", self)
-        merge_action.setShortcut("Ctrl+T")
+        merge_action.setShortcut("Ctrl+Shift+T")
         merge_action.setStatusTip("Load and merge translation files into current entries")
         merge_action.triggered.connect(self._on_merge_translations)
         tools_menu.addAction(merge_action)
@@ -410,6 +421,16 @@ class MainWindow(QMainWindow):
         # Initially disable tools until file is loaded
         tools_menu.setEnabled(False)
         self.tools_menu = tools_menu
+
+        # Settings menu
+        settings_menu = menubar.addMenu("&Settings")
+
+        # Settings action
+        settings_action = QAction("&Preferences", self)
+        settings_action.setShortcut("Ctrl+,")
+        settings_action.setStatusTip("Configure application settings")
+        settings_action.triggered.connect(self._on_settings)
+        settings_menu.addAction(settings_action)
 
     def _create_table(self):
         """Create the table widget for displaying entries."""
@@ -447,7 +468,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
 
         # Version label
-        version_label = QLabel("v0.4.0")
+        version_label = QLabel("v0.5.0")
         version_label.setStyleSheet("color: gray;")
         self.status_bar.addWidget(version_label)
 
@@ -572,11 +593,11 @@ class MainWindow(QMainWindow):
             translated = self.translations.get(entry.key, "")
             translated_item = QTableWidgetItem(translated)
             translated_item.setFlags(translated_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            
+
             # Highlight if translated
             if translated:
                 translated_item.setBackground(QColor(200, 255, 200))  # Light green
-            
+
             self.table.setItem(row, 2, translated_item)
 
         self.table.setSortingEnabled(True)
@@ -877,7 +898,7 @@ class MainWindow(QMainWindow):
             return
 
         paths = []
-        
+
         if choice == QMessageBox.StandardButton.Yes:
             # Select folder
             folder_path = QFileDialog.getExistingDirectory(
@@ -953,15 +974,41 @@ class MainWindow(QMainWindow):
         # Update only the translated column instead of repopulating entire table
         self._update_translation_column()
 
+        # Find entries in MAIN that are NOT in translation (missing translations)
+        main_keys = {entry.key for entry in self.entries}
+        translation_keys = set(translations.keys())
+        missing_keys = main_keys - translation_keys
+
         # Show summary
         translated_count = len([e for e in self.entries if e.key in translations])
-        QMessageBox.information(
-            self,
-            "Merge Complete",
-            f"Successfully merged translations!\n\n"
-            f"Total translations loaded: {len(translations)}\n"
-            f"Matching entries: {translated_count}/{len(self.entries)}"
-        )
+
+        if missing_keys:
+            # Show missing entries dialog with option to translate using AI
+            reply = QMessageBox.question(
+                self,
+                "Missing Translations Found",
+                f"Successfully merged translations!\n\n"
+                f"Total translations loaded: {len(translations)}\n"
+                f"Matching entries: {translated_count}/{len(self.entries)}\n\n"
+                f"⚠️ Found {len(missing_keys)} entries in main file\n"
+                f"that don't have translations yet.\n\n"
+                f"Do you want to translate these missing entries using AI?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                self._show_missing_entries_dialog(missing_keys)
+        else:
+            QMessageBox.information(
+                self,
+                "Merge Complete",
+                f"Successfully merged translations!\n\n"
+                f"Total translations loaded: {len(translations)}\n"
+                f"Matching entries: {translated_count}/{len(self.entries)}\n\n"
+                f"✓ All entries have translations!"
+            )
+
         self.status_bar.showMessage(
             f"Merged {translated_count} translations"
         )
@@ -969,27 +1016,27 @@ class MainWindow(QMainWindow):
     def _update_translation_column(self):
         """Update only the translation column (column 2) without repopulating entire table."""
         self.table.setSortingEnabled(False)
-        
+
         highlight_color = QColor(200, 255, 200)
-        
+
         for row in range(self.table.rowCount()):
             # Get key from first column
             key_item = self.table.item(row, 0)
             if not key_item:
                 continue
-                
+
             key = key_item.text()
             translated = self.translations.get(key, "")
-            
+
             # Update translated column
             translated_item = QTableWidgetItem(translated)
             translated_item.setFlags(translated_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            
+
             if translated:
                 translated_item.setBackground(highlight_color)
-            
+
             self.table.setItem(row, 2, translated_item)
-        
+
         self.table.setSortingEnabled(True)
 
     def _on_merge_error(self, error_message: str):
@@ -1022,3 +1069,85 @@ class MainWindow(QMainWindow):
             content = self.translations.get(entry.key, entry.content)
             export_entries.append(MXMLEntry(key=entry.key, content=content))
         return export_entries
+
+    def _on_settings(self):
+        """Handle Settings action - open preferences dialog."""
+        from .settings_dialog import SettingsDialog
+
+        dialog = SettingsDialog(self)
+        dialog.exec()
+
+    def _on_translate_missing(self):
+        """Handle Translate with AI action - translate missing entries."""
+        if not self.entries:
+            QMessageBox.warning(
+                self,
+                "No Data",
+                "Please load an MXML file first."
+            )
+            return
+
+        # Find entries without translations
+        main_keys = {entry.key for entry in self.entries}
+        translation_keys = set(self.translations.keys())
+        missing_keys = main_keys - translation_keys
+
+        if not missing_keys:
+            QMessageBox.information(
+                self,
+                "All Translated",
+                f"All {len(self.entries)} entries already have translations!\n\n"
+                f"Use 'Merge Translation Files' if you want to update existing translations."
+            )
+            return
+
+        # Show confirmation
+        reply = QMessageBox.question(
+            self,
+            "Translate Missing Entries",
+            f"Found {len(missing_keys)} entries without translations.\n\n"
+            f"Do you want to translate them using Gemini AI?\n\n"
+            f"Note: This will consume API quota.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self._show_missing_entries_dialog(missing_keys)
+
+    def _show_missing_entries_dialog(self, missing_keys: set):
+        """
+        Show dialog for missing entries that need translation.
+
+        Args:
+            missing_keys: Set of keys that exist in main but not in translations
+        """
+        from .missing_entries_dialog import MissingEntriesDialog
+
+        # Create MXMLEntry objects for missing keys
+        missing_entries = []
+        for entry in self.entries:
+            if entry.key in missing_keys:
+                missing_entries.append(entry)
+
+        dialog = MissingEntriesDialog(missing_entries, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Get new translations from AI
+            new_translations = dialog.get_translations()
+
+            if new_translations:
+                # Merge new translations into existing translations
+                self.translations.update(new_translations)
+
+                # Update the translation column in the table
+                self._update_translation_column()
+
+                QMessageBox.information(
+                    self,
+                    "Translation Complete",
+                    f"Successfully translated {len(new_translations)} missing entries!\n\n"
+                    f"These translations have been added to your main file."
+                )
+                self.status_bar.showMessage(
+                    f"Added {len(new_translations)} translations"
+                )

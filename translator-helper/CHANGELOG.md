@@ -5,6 +5,47 @@ All notable changes to the NMS MXML Translator Helper will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-11-02
+
+### Added
+- **AI Translation Integration** with Google Gemini API (gemini-2.5-flash)
+- **Translate with AI** feature (Ctrl+T) to translate missing entries using Gemini AI
+- **Settings Dialog** (Ctrl+,) for configuring Gemini API key and workflow type
+- Missing Entries Dialog with real-time translation progress and status updates
+- Support for sequence and full_parallel translation workflows
+- Token-based patch splitting (50,000 tokens per patch) for handling large datasets
+- Smart quota handling with automatic retry and countdown for rate limits
+- Translation validation to ensure all keys are translated
+- Auto-detect missing translations after merging translation files
+- Persistent settings storage using TranslationConfig
+- Comprehensive error handling with retry logic (3 attempts per patch)
+- Professional Vietnamese translation prompt with game-specific terminology
+
+### Improvements
+- Modular translation architecture with dedicated `translation/` module
+  - `translation/engine.py`: Core translation engine with PyQt6 signals
+  - `translation/config.py`: Configuration management with WorkflowType enum
+  - `translation/prompts.py`: Translation prompts and instructions
+  - `translation/utils.py`: Utility functions for patching and validation
+- Enhanced Tools menu with "Translate with AI" action
+- Updated "Merge Translation Files" shortcut to Ctrl+Shift+T (to avoid conflict)
+- Missing entries dialog now triggered automatically after merge if untranslated entries found
+- Color-coded translation status (light green) in table for translated entries
+- Progress tracking with patch-by-patch updates
+- Thread-safe translation execution without nested QThread issues
+- Better separation of UI and translation logic
+
+### Technical Details
+- New `TranslationEngine` module with Gemini API integration
+- `SettingsDialog` class for API configuration management
+- `MissingEntriesDialog` with 3-column table and progress tracking
+- `TranslationThread` for background AI translation with Qt signals
+- JSON-based settings persistence in user home directory
+- Patch completion signal for real-time table updates
+- Support for both sequence and parallel translation strategies
+- Markdown cleanup in translation responses
+- Dependencies: Added `google-generativeai>=0.3.0`
+
 ## [0.4.0] - 2025-11-02
 
 ### Added
