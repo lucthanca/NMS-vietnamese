@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Color-coded comparison results for easy identification
 - Export comparison changes (modified/added only) to JSON and MXML formats
 - Identical files detection with informational message
+- Background threading for comparison operations with progress feedback
+- Real-time status updates during MBIN conversion and file parsing
 - Application icon (translator.ico) with multi-resolution support
 - Version display in status bar (bottom-left corner)
 - PNG to ICO conversion utility for icon creation
@@ -29,9 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Temporary file management with automatic cleanup
 - New `EntryComparator` class for comparing entry sets
 - New `CompareDialog` for displaying comparison results
+- New `ComparisonThread` for background comparison processing
 - Support for comparing MXML and MBIN files
 - Comprehensive diff indicators (ADDED, REMOVED, MODIFIED, UNCHANGED)
 - Background thread support for MBIN conversion
+- Non-blocking UI during comparison operations with progress bar
 - Multi-resolution ICO file generation with Pillow library
 - Icon integration in window title bar and executable
 - Resources directory bundled with PyInstaller build

@@ -75,6 +75,68 @@ class LoaderThread(QThread):
                 cleanup_temp_dir(str(temp_dir))
 
 
+class ComparisonThread(QThread):
+    """
+    Background thread for loading and comparing files without blocking the UI.
+
+    Signals:
+        status: Emits status message for UI updates
+        finished: Emits (compare_entries, compare_filename) when loading is complete
+        error: Emits error message string if loading fails
+    """
+
+    status = pyqtSignal(str)
+    finished = pyqtSignal(list, str)
+    error = pyqtSignal(str)
+
+    def __init__(self, file_path: str):
+        """
+        Initialize the comparison thread.
+
+        Args:
+            file_path: Path to the MXML or MBIN file to compare
+        """
+        super().__init__()
+        self.file_path = file_path
+        self.temp_mxml_path = None
+
+    def run(self):
+        """Execute the file loading and comparison in background."""
+        try:
+            compare_path = Path(self.file_path)
+            
+            # Determine if MBIN or MXML
+            is_mbin = compare_path.suffix.upper() in ['.MBIN', '.PC']
+
+            # Load the comparison file
+            if is_mbin:
+                self.status.emit(f"Converting MBIN file: {compare_path.name}...")
+                # Convert MBIN to MXML
+                compiler = MBINCompiler()
+                self.temp_mxml_path = compiler.mbin_to_mxml(self.file_path)
+                file_to_parse = self.temp_mxml_path
+            else:
+                file_to_parse = self.file_path
+
+            self.status.emit(f"Parsing file: {compare_path.name}...")
+            # Parse the file
+            parser = MXMLParser()
+            compare_entries = parser.parse_file(file_to_parse)
+
+            self.status.emit("Comparing entries...")
+            self.finished.emit(compare_entries, compare_path.name)
+
+        except MBINCompilerError as e:
+            self.error.emit(f"MBIN conversion error: {e}")
+        except Exception as e:
+            self.error.emit(str(e))
+        finally:
+            # Cleanup temp files
+            if self.temp_mxml_path:
+                temp_dir = Path(self.temp_mxml_path).parent
+                cleanup_temp_dir(str(temp_dir))
+
+
 
 class MainWindow(QMainWindow):
     """
@@ -93,6 +155,7 @@ class MainWindow(QMainWindow):
         self.entries: List[MXMLEntry] = []
         self.current_file: Optional[Path] = None
         self.loader_thread: Optional[LoaderThread] = None
+        self.comparison_thread: Optional[ComparisonThread] = None
 
         self._init_ui()
         self._set_window_icon()
@@ -534,77 +597,81 @@ class MainWindow(QMainWindow):
         if not file_path:
             return
 
-        try:
-            # Show progress
-            self.status_bar.showMessage("Loading comparison file...")
-            self.progress_bar.setVisible(True)
-            self.progress_bar.setRange(0, 0)
+        # Show progress
+        self.status_bar.showMessage("Loading comparison file...")
+        self.progress_bar.setVisible(True)
+        self.progress_bar.setRange(0, 0)
 
-            compare_path = Path(file_path)
+        # Disable menus during comparison
+        self.menuBar().setEnabled(False)
 
-            # Determine if MBIN or MXML
-            is_mbin = compare_path.suffix.upper() in ['.MBIN', '.PC']
+        # Create and start comparison thread
+        self.comparison_thread = ComparisonThread(file_path)
+        self.comparison_thread.status.connect(self._on_comparison_status)
+        self.comparison_thread.finished.connect(self._on_comparison_finished)
+        self.comparison_thread.error.connect(self._on_comparison_error)
+        self.comparison_thread.start()
 
-            # Load the comparison file
-            if is_mbin:
-                # Convert MBIN to MXML
-                compiler = MBINCompiler()
-                temp_mxml_path = compiler.mbin_to_mxml(file_path)
-                file_to_parse = temp_mxml_path
-            else:
-                file_to_parse = file_path
+    def _on_comparison_status(self, message: str):
+        """
+        Handle status updates from comparison thread.
 
-            # Parse the file
-            parser = MXMLParser()
-            compare_entries = parser.parse_file(file_to_parse)
+        Args:
+            message: Status message to display
+        """
+        self.status_bar.showMessage(message)
 
-            # Cleanup temp file if needed
-            if is_mbin and 'temp_mxml_path' in locals():
-                temp_dir = Path(temp_mxml_path).parent
-                cleanup_temp_dir(str(temp_dir))
+    def _on_comparison_finished(self, compare_entries: List[MXMLEntry], compare_filename: str):
+        """
+        Handle successful comparison.
 
-            self.progress_bar.setVisible(False)
+        Args:
+            compare_entries: Entries from the comparison file
+            compare_filename: Name of the comparison file
+        """
+        self.progress_bar.setVisible(False)
+        self.menuBar().setEnabled(True)
 
-            # Perform comparison
-            comparator = EntryComparator(self.entries, compare_entries)
+        # Perform comparison
+        comparator = EntryComparator(self.entries, compare_entries)
 
-            # Check if identical
-            if comparator.is_identical():
-                QMessageBox.information(
-                    self,
-                    "Comparison Result",
-                    "✓ Files are identical!\n\nBoth files contain the same entries with the same content."
-                )
-                self.status_bar.showMessage("Files are identical")
-                return
-
-            # Get comparison results
-            results = comparator.compare()
-
-            # Show comparison dialog
-            dialog = CompareDialog(
-                self.current_file.name,
-                compare_path.name,
-                results,
-                self
-            )
-            dialog.exec()
-
-            self.status_bar.showMessage("Comparison complete")
-
-        except MBINCompilerError as e:
-            self.progress_bar.setVisible(False)
-            QMessageBox.critical(
+        # Check if identical
+        if comparator.is_identical():
+            QMessageBox.information(
                 self,
-                "Comparison Error",
-                f"Failed to convert MBIN file:\n\n{str(e)}"
+                "Comparison Result",
+                "✓ Files are identical!\n\nBoth files contain the same entries with the same content."
             )
-            self.status_bar.showMessage("Comparison failed")
-        except Exception as e:
-            self.progress_bar.setVisible(False)
-            QMessageBox.critical(
-                self,
-                "Comparison Error",
-                f"Failed to compare files:\n\n{str(e)}"
-            )
-            self.status_bar.showMessage("Comparison failed")
+            self.status_bar.showMessage("Files are identical")
+            return
+
+        # Get comparison results
+        results = comparator.compare()
+
+        # Show comparison dialog
+        dialog = CompareDialog(
+            self.current_file.name,
+            compare_filename,
+            results,
+            self
+        )
+        dialog.exec()
+
+        self.status_bar.showMessage("Comparison complete")
+
+    def _on_comparison_error(self, error_message: str):
+        """
+        Handle comparison errors.
+
+        Args:
+            error_message: Error message to display
+        """
+        self.progress_bar.setVisible(False)
+        self.menuBar().setEnabled(True)
+
+        QMessageBox.critical(
+            self,
+            "Comparison Error",
+            f"Failed to compare files:\n\n{error_message}"
+        )
+        self.status_bar.showMessage("Comparison failed")
