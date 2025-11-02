@@ -6,6 +6,7 @@ while preserving HTML entities and structure.
 """
 
 import json
+import html
 from typing import List, Dict
 from pathlib import Path
 from lxml import etree
@@ -117,8 +118,26 @@ class MXMLExporter:
         # Add Id property
         etree.SubElement(entry_prop, "Property", name="Id", value=entry.key)
 
-        # Add English property with content
-        etree.SubElement(entry_prop, "Property", name="English", value=entry.content)
+        # Unescape HTML entities recursively until no more entities remain
+        # This handles cases where content is double/triple escaped:
+        # &amp;amp; -> &amp; -> & (then lxml will escape to &amp;)
+        content = entry.content
+        max_iterations = 10  # Safety limit
+        for _ in range(max_iterations):
+            unescaped = html.unescape(content)
+            if unescaped == content:
+                # No more entities to unescape
+                break
+            content = unescaped
+
+        # Handle newline characters: convert \n to actual newline
+        # JSON may contain literal "\\n" or "\n" strings that need to become actual newlines
+        # lxml will then convert actual newlines to &#xA; when writing XML
+        content = content.replace('\\n', '\n')
+
+        # Add English property with fully unescaped content
+        # lxml will automatically escape it correctly on write
+        etree.SubElement(entry_prop, "Property", name="English", value=content)
 
         # Add empty properties for other languages
         languages = [

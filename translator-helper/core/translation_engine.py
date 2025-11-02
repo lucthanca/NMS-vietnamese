@@ -4,10 +4,13 @@ Translation Engine Module
 Handles translation using Google Gemini API with LangChain support for sequential and parallel workflows.
 """
 
+import logging
 from typing import Dict, List
 from PyQt6.QtCore import QThread, pyqtSignal, pyqtSlot
 
 from translation import TranslationConfig, TranslationEngine, WorkflowType
+
+logger = logging.getLogger(__name__)
 
 
 class TranslationThread(QThread):
@@ -37,109 +40,80 @@ class TranslationThread(QThread):
         self.api_key = api_key
         self.workflow_type = workflow_type
         self.translation_engine = None
+        self._cancel_flag = {'cancelled': False}
 
     def run(self):
-        """Execute translation directly without nested thread."""
+        """Execute translation using translate_data_direct (no QThread nesting)."""
         try:
             # Import here to avoid circular imports
-            from translation import WorkflowType, TranslationConfig
+            from translation import WorkflowType, TranslationConfig, translate_data_direct
+            from pathlib import Path
 
-            # Create translation config
+            # Load config from settings file to get token_limit and max_retries
+            settings_file = Path.home() / ".nms_translator_settings.json"
+            saved_config = TranslationConfig.load_from_settings(settings_file)
+
+            # Create translation config with saved values
             wf_type = WorkflowType.SEQUENCE if self.workflow_type == "sequence" else WorkflowType.FULL_PARALLEL
             config = TranslationConfig(
                 api_key=self.api_key,
                 workflow_type=wf_type,
-                token_limit=50000,
-                max_retries=3
+                token_limit=saved_config.token_limit,
+                max_retries=saved_config.max_retries
             )
 
-            # Create engine core (NOT a QThread)
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash",
-                temperature=0.1,
-                google_api_key=config.api_key
+            logger.info(f"Starting translation with workflow: {self.workflow_type}")
+            logger.info(f"Total entries: {len(self.entries_dict)}")
+            logger.info(f"Token limit: {config.token_limit}")
+            logger.info(f"Max retries: {config.max_retries}")
+
+            # Run translation directly with callbacks
+            translated_data = translate_data_direct(
+                self.entries_dict,
+                config,
+                progress_callback=self._on_progress,
+                patch_callback=self._on_patch_completed,
+                cancel_flag=self._cancel_flag
             )
 
-            # Split into patches
-            from translation.utils import split_into_patches, merge_patches, validate_translation
-            self.status.emit("Splitting data into patches...")
-            patches = split_into_patches(self.entries_dict, config.token_limit)
-            total_patches = len(patches)
-            self.status.emit(f"Split into {total_patches} patches")
-
-            # Translate patches
-            translated_patches = []
-            for patch_idx, patch in enumerate(patches):
-                patch_num = patch_idx + 1
-                self.progress.emit(patch_num, total_patches)
-                self.status.emit(f"Translating patch {patch_num}/{total_patches}...")
-
-                # Translate patch with retry
-                success, translated_patch = self._translate_patch(llm, patch, config.max_retries)
-
-                if success:
-                    translated_patches.append(translated_patch)
-                    self.status.emit(f"Patch {patch_num} completed")
-
-            # Merge results
-            self.status.emit("Merging results...")
-            all_translations = merge_patches(translated_patches)
+            # Check if cancelled
+            if self._cancel_flag['cancelled']:
+                logger.warning("=" * 80)
+                logger.warning("🛑 Translation completed with cancellation - not emitting results")
+                logger.warning(f"  Partial translations: {len(translated_data)} entries")
+                logger.warning("=" * 80)
+                return
 
             # Emit completion
-            self.patch_completed.emit(all_translations)
-            self.finished.emit(all_translations)
+            logger.info("=" * 80)
+            logger.info("✅ TRANSLATION COMPLETED SUCCESSFULLY")
+            logger.info(f"  Total translated entries: {len(translated_data)}")
+            logger.info("=" * 80)
+            self.patch_completed.emit(translated_data)
+            self.finished.emit(translated_data)
 
         except Exception as e:
+            logger.error(f"Translation error: {str(e)}")
             self.error.emit(str(e))
 
-    def _translate_patch(self, llm, patch: Dict[str, str], max_retries: int) -> tuple:
-        """Translate a single patch with retry logic."""
-        from translation.prompts import SYSTEM_PROMPT, get_translation_prompt
-        from translation.utils import validate_translation
-        from langchain_core.messages import HumanMessage, SystemMessage
-        import json
-        import re
-        import time
+    def _on_progress(self, current: int, total: int, message: str):
+        """Handle progress updates."""
+        self.progress.emit(current, total)
+        self.status.emit(message)
 
-        for retry in range(max_retries + 1):
-            try:
-                # Call Gemini API
-                system_msg = SystemMessage(content=SYSTEM_PROMPT)
-                human_msg = HumanMessage(content=get_translation_prompt(patch))
-                messages = [system_msg, human_msg]
+    def _on_patch_completed(self, patch_num: int, success: bool, error_msg: str):
+        """Handle patch completion."""
+        if success:
+            self.status.emit(f"Patch {patch_num} completed")
+        else:
+            self.status.emit(f"Patch {patch_num} failed: {error_msg}")
 
-                response = llm.invoke(messages)
-                response_text = response.content.strip()
-
-                # Parse JSON response
-                if response_text.startswith("```"):
-                    lines = response_text.split("\n")
-                    lines = lines[1:]
-                    if lines and lines[-1].strip() == "```":
-                        lines = lines[:-1]
-                    response_text = "\n".join(lines)
-
-                translated_patch = json.loads(response_text)
-
-                # Validate translation
-                is_valid, missing_keys = validate_translation(patch, translated_patch)
-                if is_valid:
-                    return True, translated_patch
-                else:
-                    if retry < max_retries:
-                        self.status.emit(f"Validation failed, retrying ({retry + 1}/{max_retries})...")
-                        time.sleep(2)
-                    else:
-                        return False, None
-
-            except Exception as e:
-                if retry < max_retries:
-                    self.status.emit(f"Error: {str(e)}, retrying ({retry + 1}/{max_retries})...")
-                    time.sleep(2)
-                else:
-                    raise
-
-        return False, None
+    def cancel(self):
+        """Cancel the translation operation."""
+        logger.warning("=" * 80)
+        logger.warning("🛑 CANCEL REQUESTED - Setting cancellation flag")
+        logger.warning("  Workers will check flag before next API call")
+        logger.warning("=" * 80)
+        self._cancel_flag['cancelled'] = True
 
 

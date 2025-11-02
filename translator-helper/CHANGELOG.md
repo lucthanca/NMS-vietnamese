@@ -5,6 +5,74 @@ All notable changes to the NMS MXML Translator Helper will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2025-11-02
+
+### Fixed
+- **True Parallel Workflow**: Implemented rolling parallel execution for full_parallel workflow
+  - Now runs maximum 3 patches concurrently (instead of just 1)
+  - When a worker completes a patch, it immediately picks up the next patch from queue
+  - Uses ThreadPoolExecutor with as_completed() for optimal throughput
+  - Thread-safe signal emission with threading.Lock for concurrent operations
+  - Verbose logging for parallel workflow progress tracking
+- **Thread Hanging Issue**: Fixed terminal hanging when closing translation dialog
+  - App now force exits with `os._exit()` after QApplication closes
+  - Ctrl+C signal handler for immediate termination
+  - Background threads don't block app termination
+  - Clear warnings when closing with active threads
+- **Dialog Close Handling**: Fixed missing confirmation dialog
+  - Override `reject()` method to intercept Close button
+  - Both closeEvent and reject now check for running translation
+  - Confirmation prompt appears consistently when translation active
+  - Worker threads check cancel flag immediately after API response
+  - Enhanced logging to track dialog close and cancellation flow
+
+### Added
+- **Enhanced API Call Logging**: Detailed logging for each Gemini API call
+  - Request details: patch size, sample keys, estimated tokens
+  - Response details: timing, response size, preview
+  - Model and temperature parameters logged for each call
+- **Translation Cancellation**: Ability to cancel ongoing translation
+  - Cancel via dialog close event with confirmation prompt
+  - Graceful shutdown of parallel workers
+  - Cancel flag propagated to all worker threads
+  - **Enhanced cancellation logging** with clear visual indicators (🛑)
+  - Shows completed vs remaining patches when cancelled
+- **Configurable Translation Settings**:
+  - **Token Limit** setting (default: 50000, range: 1000-100000)
+  - **Max Retries** setting (default: 3, range: 0-10)
+  - Settings persisted and loaded from config file
+  - Validation for token limit and max retries values
+
+### Technical Details
+- Added `concurrent.futures.ThreadPoolExecutor` for parallel patch processing
+- Created `translate_data_direct()` function to avoid nested QThread issues
+- Implemented direct workflow methods: `_run_sequential_direct()`, `_run_parallel_direct()`
+- Refactored `core/translation_engine.py` to use `translate_data_direct()` instead of QThread nesting
+- Added helper function `_translate_patch_with_retry_direct()` for worker threads
+- Enhanced logging to show concurrent patch completion in real-time
+- Test script: `test_parallel_workflow.py` to demonstrate concurrent processing
+- Added `cancel_flag` parameter throughout translation pipeline
+- `TranslationThread.cancel()` method to interrupt translation
+- `MissingEntriesDialog.closeEvent()` with cancellation confirmation
+
+### Architecture Changes
+- **translation/engine.py**:
+  - `TranslationEngine` (QThread) - For standalone use with signals
+  - `translate_data_direct()` - For use within existing threads (no QThread)
+  - Parallel execution with ThreadPoolExecutor and as_completed pattern
+  - Cancel flag support in all workflow functions
+- **core/translation_engine.py**:
+  - `TranslationThread` now calls `translate_data_direct()` to avoid nested threads
+  - Callbacks for progress and patch completion instead of signal connections
+  - `cancel()` method sets flag to interrupt workers
+- **ui/missing_entries_dialog.py**:
+  - `closeEvent()` handler to cancel translation on dialog close
+- **ui/settings_dialog.py**:
+  - Added Token Limit input field with validation (1000-100000)
+  - Added Max Retries input field with validation (0-10)
+  - Load and save settings from/to TranslationConfig
+  - `closeEvent()` handler to cancel translation on dialog close
+
 ## [0.5.0] - 2025-11-02
 
 ### Added

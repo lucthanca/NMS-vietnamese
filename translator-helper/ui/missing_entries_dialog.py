@@ -292,3 +292,72 @@ class MissingEntriesDialog(QDialog):
     def get_translations(self) -> Dict[str, str]:
         """Get the translations dictionary."""
         return self.translations
+
+    def _check_and_cancel_translation(self):
+        """
+        Check if translation is running and ask user to cancel.
+        Returns True if can close, False if should stay open.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        logger.info(f"Checking translation status before close...")
+        logger.info(f"  translation_thread exists: {self.translation_thread is not None}")
+        if self.translation_thread:
+            logger.info(f"  translation_thread.isRunning(): {self.translation_thread.isRunning()}")
+
+        if self.translation_thread and self.translation_thread.isRunning():
+            reply = QMessageBox.question(
+                self,
+                "Translation In Progress",
+                "Translation is still running. Cancel and close?\n\n"
+                "⚠️ Important:\n"
+                "• Workers will stop after current API calls complete\n"
+                "• Cannot interrupt ongoing API requests (10-30s each)\n"
+                "• Partial results will be discarded\n"
+                "• You can force quit the app with Ctrl+C if needed",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                logger.warning("=" * 80)
+                logger.warning("🛑 USER CONFIRMED CANCEL VIA DIALOG CLOSE")
+                logger.warning("=" * 80)
+
+                # Set cancel flag (non-blocking)
+                self.translation_thread.cancel()
+
+                # Disconnect signals to prevent errors after dialog closes
+                try:
+                    self.translation_thread.status.disconnect()
+                    self.translation_thread.progress.disconnect()
+                    self.translation_thread.finished.disconnect()
+                    self.translation_thread.error.disconnect()
+                    logger.info("✓ Signals disconnected successfully")
+                except Exception as e:
+                    logger.warning(f"Error disconnecting signals: {e}")
+
+                # Don't wait for thread - let it finish in background
+                logger.warning("⏳ Waiting for current API calls to complete (cannot interrupt blocking API calls)")
+                logger.warning("   Workers will stop after current API responses are received")
+                logger.warning("   This may take 10-30 seconds depending on API response time")
+                return True
+            else:
+                logger.info("User chose not to cancel - keeping dialog open")
+                return False
+        else:
+            logger.info("No active translation thread - closing dialog normally")
+            return True
+
+    def reject(self):
+        """Override reject to check for running translation."""
+        if self._check_and_cancel_translation():
+            super().reject()
+
+    def closeEvent(self, event):
+        """Handle dialog close event - cancel translation if running."""
+        if self._check_and_cancel_translation():
+            event.accept()
+        else:
+            event.ignore()

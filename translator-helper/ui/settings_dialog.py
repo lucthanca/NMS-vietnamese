@@ -62,6 +62,24 @@ class SettingsDialog(QDialog):
         )
         workflow_layout.addRow("Workflow Type:", self.workflow_combo)
 
+        # Token limit
+        self.token_limit_input = QLineEdit()
+        self.token_limit_input.setPlaceholderText("50000")
+        self.token_limit_input.setToolTip(
+            "Maximum tokens per patch (default: 50000)\n"
+            "Smaller values = more patches, more API calls\n"
+            "Larger values = fewer patches, faster translation"
+        )
+        workflow_layout.addRow("Token Limit:", self.token_limit_input)
+
+        # Max retries
+        self.max_retries_input = QLineEdit()
+        self.max_retries_input.setPlaceholderText("3")
+        self.max_retries_input.setToolTip(
+            "Maximum retry attempts for failed patches (default: 3)"
+        )
+        workflow_layout.addRow("Max Retries:", self.max_retries_input)
+
         workflow_group.setLayout(workflow_layout)
         layout.addWidget(workflow_group)
 
@@ -85,7 +103,9 @@ class SettingsDialog(QDialog):
         config = TranslationConfig.load_from_settings(self.settings_file)
         return {
             "gemini_api_key": config.api_key,
-            "workflow_type": config.workflow_type.value
+            "workflow_type": config.workflow_type.value,
+            "token_limit": config.token_limit,
+            "max_retries": config.max_retries
         }
 
     def _load_values(self):
@@ -97,30 +117,78 @@ class SettingsDialog(QDialog):
         if index >= 0:
             self.workflow_combo.setCurrentIndex(index)
 
+        # Load token limit and max retries
+        self.token_limit_input.setText(str(self.settings.get("token_limit", 50000)))
+        self.max_retries_input.setText(str(self.settings.get("max_retries", 3)))
+
     def _save_and_close(self):
         """Save settings and close dialog using TranslationConfig."""
         from translation import TranslationConfig, WorkflowType
-
-        # Update local settings dict for backward compatibility
-        self.settings = {
-            "gemini_api_key": self.api_key_input.text().strip(),
-            "workflow_type": self.workflow_combo.currentText()
-        }
+        from PyQt6.QtWidgets import QMessageBox
 
         try:
+            # Parse and validate token_limit
+            token_limit_text = self.token_limit_input.text().strip()
+            token_limit = int(token_limit_text) if token_limit_text else 50000
+            if token_limit < 1000:
+                QMessageBox.warning(
+                    self,
+                    "Invalid Token Limit",
+                    "Token limit must be at least 1000"
+                )
+                return
+            if token_limit > 100000:
+                QMessageBox.warning(
+                    self,
+                    "Invalid Token Limit",
+                    "Token limit should not exceed 100000 (Gemini output limit is ~65k tokens)"
+                )
+                return
+
+            # Parse and validate max_retries
+            max_retries_text = self.max_retries_input.text().strip()
+            max_retries = int(max_retries_text) if max_retries_text else 3
+            if max_retries < 0:
+                QMessageBox.warning(
+                    self,
+                    "Invalid Max Retries",
+                    "Max retries must be at least 0"
+                )
+                return
+            if max_retries > 10:
+                QMessageBox.warning(
+                    self,
+                    "Invalid Max Retries",
+                    "Max retries should not exceed 10"
+                )
+                return
+
+            # Update local settings dict for backward compatibility
+            self.settings = {
+                "gemini_api_key": self.api_key_input.text().strip(),
+                "workflow_type": self.workflow_combo.currentText(),
+                "token_limit": token_limit,
+                "max_retries": max_retries
+            }
+
             # Create and save config
             wf_type = WorkflowType.SEQUENCE if self.workflow_combo.currentText() == "sequence" else WorkflowType.FULL_PARALLEL
             config = TranslationConfig(
                 api_key=self.api_key_input.text().strip(),
                 workflow_type=wf_type,
-                token_limit=50000,
-                max_retries=3
+                token_limit=token_limit,
+                max_retries=max_retries
             )
             config.save_to_settings(self.settings_file)
 
             self.accept()
+        except ValueError as e:
+            QMessageBox.warning(
+                self,
+                "Invalid Input",
+                f"Please enter valid numbers for Token Limit and Max Retries:\n{e}"
+            )
         except Exception as e:
-            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.critical(
                 self,
                 "Error",

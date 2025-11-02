@@ -296,11 +296,24 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event - cleanup threads."""
-        # Wait for any running threads to finish
-        for thread in [self.loader_thread, self.comparison_thread, self.merge_thread]:
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Check for running threads
+        running_threads = []
+        for name, thread in [
+            ("loader", self.loader_thread),
+            ("comparison", self.comparison_thread),
+            ("merge", self.merge_thread)
+        ]:
             if thread and thread.isRunning():
-                thread.quit()
-                thread.wait(1000)  # Wait max 1 second
+                running_threads.append(name)
+
+        if running_threads:
+            logger.warning(f"Closing with active threads: {', '.join(running_threads)}")
+            logger.warning("Threads will be terminated when process exits")
+
+        # Don't wait for threads - let main.py handle force exit
         event.accept()
 
     def _set_window_icon(self):
@@ -968,8 +981,41 @@ class MainWindow(QMainWindow):
         self.progress_bar.setVisible(False)
         self.menuBar().setEnabled(True)
 
-        # Update translations
-        self.translations = translations
+        # Check if there are existing translations
+        merge_mode = "replace"  # default
+        if self.translations:
+            # Ask user: merge or replace?
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Icon.Question)
+            msg.setWindowTitle("Merge Strategy")
+            msg.setText(f"You already have {len(self.translations)} existing translations.\n\n"
+                       f"How would you like to merge {len(translations)} new translations?")
+
+            replace_btn = msg.addButton("Replace All", QMessageBox.ButtonRole.DestructiveRole)
+            merge_btn = msg.addButton("Merge (Keep Existing)", QMessageBox.ButtonRole.AcceptRole)
+            cancel_btn = msg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+
+            replace_btn.setToolTip("Discard all existing translations and use only the new ones")
+            merge_btn.setToolTip("Keep existing translations and add new ones (existing entries won't be overwritten)")
+
+            msg.setDefaultButton(merge_btn)
+            msg.exec()
+
+            clicked = msg.clickedButton()
+            if clicked == cancel_btn:
+                self.status_bar.showMessage("Merge cancelled")
+                return
+            elif clicked == replace_btn:
+                merge_mode = "replace"
+            else:  # merge_btn
+                merge_mode = "merge"
+
+        # Update translations based on merge mode
+        if merge_mode == "replace":
+            self.translations = translations
+        else:  # merge
+            # Merge: keep existing + add new, new file overrides conflicts
+            self.translations.update(translations)
 
         # Update only the translated column instead of repopulating entire table
         self._update_translation_column()
